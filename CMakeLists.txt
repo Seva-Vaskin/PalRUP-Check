@@ -1,6 +1,13 @@
 
-cmake_minimum_required(VERSION 3.11.4)
-project(palrup-checker)
+cmake_minimum_required(VERSION 3.30)
+
+project(
+        palrup-checker
+        VERSION 1.0
+        LANGUAGES C CXX
+)
+
+add_subdirectory(compression)
 
 add_definitions("-std=gnu99 -Wall -Wextra -Werror -pedantic-errors -flto -lm") 
 
