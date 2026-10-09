@@ -98,8 +98,8 @@
 #include <span>
 #include <vector>
 
-#include "io/BitReader.hpp"
-#include "io/BitWriter.hpp"
+#include "BitReader.hpp"
+#include "BitWriter.hpp"
 
 // ============================================================================
 //  VitterCoder

@@ -3,7 +3,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "io/ByteReader.hpp"
+#include "ByteReader.hpp"
 
 class BitReader {
 public:

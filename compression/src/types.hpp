@@ -1,8 +1,14 @@
 #pragma once
 
-#include "core/types.hpp"
-
 #include <vector>
+
+struct ClauseId {
+    uint64_t value;
+};
+
+struct Literal {
+    int32_t value;
+};
 
 struct AddRecord {
     ClauseId id;
@@ -20,3 +26,4 @@ struct DeleteRecord {
 };
 
 using Record = std::variant<AddRecord, ImportRecord, DeleteRecord>;
+

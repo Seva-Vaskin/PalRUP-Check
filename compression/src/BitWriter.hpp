@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "io/ByteWriter.hpp"
+#include "ByteWriter.hpp"
 
 class BitWriter {
 public:
