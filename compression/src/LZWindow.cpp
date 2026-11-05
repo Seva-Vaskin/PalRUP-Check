@@ -119,7 +119,7 @@ std::span<LZWindow::Match> LZWindow::find_matches(std::span<const uint64_t> toke
 
         if (length > best_match) {
             best_match = length;
-            CHECK(match_count <= output.size());
+            CHECK(match_count < output.size());
 
             output[match_count++] = Match{.length = length, .distance = static_cast<uint32_t>(distance)};
             if (length >= config_.nice_match || length >= length_limit) break;
