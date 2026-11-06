@@ -15,9 +15,10 @@ public:
 
     BitWriter &operator=(const BitWriter &) = delete;
 
-    void put_bit(std::uint32_t bit) noexcept { put_bits(bit, 1); }
+    void put_bit(const std::uint32_t bit) noexcept { put_bits(bit, 1); }
 
-    void put_bits(std::uint32_t value, uint32_t count) noexcept {
+    void put_bits(const std::uint64_t value, const uint32_t count) noexcept {
+        CHECK(count <= 64);
         acc_ = (acc_ << count) | value;
         cnt_ += count;
         while (cnt_ >= 8) {
@@ -32,6 +33,11 @@ public:
             cnt_ = 0;
         }
         out_.flush();
+    }
+
+    void close() noexcept {
+        flush();
+        out_.close();
     }
 
 private:

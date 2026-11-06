@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "error.hpp"
+
 class ByteWriter {
 public:
     explicit ByteWriter(std::FILE *file) noexcept : file_(file) {
@@ -22,9 +24,9 @@ public:
     }
 
     void flush() noexcept {
-        if (pos_ != 0 && file_ != nullptr) {
-            std::fwrite(buf_, 1, pos_, file_);
-        }
+        if (pos_ == 0) return;
+        CHECK(file_ != nullptr);
+        std::fwrite(buf_, 1, pos_, file_);
         pos_ = 0;
     }
 
