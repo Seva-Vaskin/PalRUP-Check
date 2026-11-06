@@ -3,6 +3,9 @@
 // Remark:
 // VitterCoder.hpp, VitterCoder.cpp are LLM-generated.
 
+//  TODO: weights are 32-bit, so one model must not see 2^32 or
+//  more symbols. On very large proofs a model can reach that limit.
+
 
 // ============================================================================
 //  Adaptive (one-pass) Huffman coding -- Vitter's Algorithm V.
