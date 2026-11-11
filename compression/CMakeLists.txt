@@ -36,6 +36,10 @@ add_library(palrup-compression STATIC
         src/Params.hpp
         src/RecordCoder.cpp
         src/RecordCoder.hpp
+        src/BitReader.cpp
+        src/BitWriter.cpp
+        src/ByteReader.cpp
+        src/ByteWriter.cpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)

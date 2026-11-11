@@ -1,47 +1,29 @@
 #pragma once
 
-#include <cstdint>
-
 #include "ByteWriter.hpp"
 
 class BitWriter {
 public:
-    explicit BitWriter(ByteWriter &out) noexcept : out_(out) {
-    }
+    explicit BitWriter(ByteWriter &out) noexcept;
 
-    ~BitWriter() { flush(); }
+    ~BitWriter();
 
     BitWriter(const BitWriter &) = delete;
 
     BitWriter &operator=(const BitWriter &) = delete;
 
-    void put_bit(const std::uint32_t bit) noexcept { put_bits(bit, 1); }
+    void put_bit(uint32_t bit) noexcept;
 
-    void put_bits(const std::uint64_t value, const uint32_t count) noexcept {
-        CHECK(count <= 64);
-        acc_ = (acc_ << count) | value;
-        cnt_ += count;
-        while (cnt_ >= 8) {
-            cnt_ -= 8;
-            out_.put(static_cast<std::uint8_t>(acc_ >> cnt_));
-        }
-    }
+    void put_bits(uint64_t value, uint32_t count) noexcept;
 
-    void flush() noexcept {
-        if (cnt_ != 0) {
-            out_.put(static_cast<std::uint8_t>(acc_ << (8 - cnt_)));
-            cnt_ = 0;
-        }
-        out_.flush();
-    }
+    void flush() noexcept;
 
-    void close() noexcept {
-        flush();
-        out_.close();
-    }
+    void close() noexcept;
 
 private:
     ByteWriter &out_;
-    std::uint64_t acc_ = 0;
+    uint64_t acc_ = 0;
     unsigned cnt_ = 0;
+
+    void put_chunk(uint64_t value, uint32_t count) noexcept;
 };
