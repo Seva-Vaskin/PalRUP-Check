@@ -96,6 +96,14 @@ uint32_t LZWindow::match_length(const uint64_t pos,
     return length;
 }
 
+LZWindow::LZWindow(const Config &config) : config_(check_config(config)),
+                                           window_mask_((1u << config.window_log) - 1u),
+                                           hash_mask_((1u << config.hash_bits) - 1u),
+                                           window_(1u << config.window_log),
+                                           head_(1u << config.hash_bits, NO_POSITION),
+                                           prev_(1u << config.window_log) {
+}
+
 std::span<LZWindow::Match> LZWindow::find_matches(std::span<const uint64_t> tokens, std::span<Match> output) const {
     if (tokens.size() < MIN_MATCH || output.empty()) {
         return output.first(0);
@@ -145,4 +153,27 @@ void LZWindow::insert(const std::span<const uint64_t> tokens) {
         prev_[p & window_mask_] = head_[h];
         head_[h] = p;
     }
+}
+
+void LZWindow::Config::fields(this auto &self, auto &&f) {
+    f(self.window_log);
+    f(self.hash_bits);
+    f(self.max_match);
+    f(self.nice_match);
+    f(self.max_search_depth);
+}
+
+constexpr bool LZWindow::Config::valid() const noexcept {
+    bool ok = true;
+    ok &= MIN_WINDOW_LOG <= window_log && window_log <= MAX_WINDOW_LOG;
+    ok &= MIN_HASH_BITS <= hash_bits && hash_bits <= MAX_HASH_BITS;
+    ok &= MIN_MATCH <= max_match && max_match <= MAX_MATCH;
+    ok &= MIN_MATCH <= nice_match && nice_match <= max_match;
+    ok &= max_search_depth >= 1;
+    return ok;
+}
+
+constexpr LZWindow::Config LZWindow::check_config(const Config &config) {
+    CHECK(config.valid());
+    return config;
 }

@@ -30,8 +30,8 @@ add_library(palrup-compression STATIC
         src/PalRupWriter.cpp
         src/PalRupWriter.hpp
         src/vbl.hpp
-        src/DistanceCoder.cpp
-        src/DistanceCoder.hpp
+        src/DistanceTable.cpp
+        src/DistanceTable.hpp
         src/Params.cpp
         src/Params.hpp
         src/RecordCoder.cpp
@@ -40,6 +40,8 @@ add_library(palrup-compression STATIC
         src/BitWriter.cpp
         src/ByteReader.cpp
         src/ByteWriter.cpp
+        src/DeleteRecordCoder.cpp
+        src/DeleteRecordCoder.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)

@@ -1,4 +1,4 @@
-#include "DistanceCoder.hpp"
+#include "DistanceTable.hpp"
 
 #include <bit>
 
@@ -26,21 +26,30 @@ namespace {
     }
 }
 
-DistanceTable::DistanceTable(const Config &config) : config_(config), buckets_() {
-    CHECK(config.min_value <= config.max_value);
-    CHECK(config.max_value < (uint64_t{1} << 63));
+bool DistanceTable::Config::valid() const noexcept {
+    bool ok = true;
+    ok &= exact_until <= kMaxExactUntil;
+    ok &= std::has_single_bit(groups_per_level) && groups_per_level <= kMaxGroupsPerLevel;
+    return ok;
+}
+
+DistanceTable::DistanceTable(const Config &config, const uint64_t min_value,
+                             const uint64_t max_value) : config_(config), buckets_(), min_value_(min_value),
+                                                         max_value_(max_value) {
+    CHECK(min_value_ <= max_value);
+    CHECK(max_value_ < (uint64_t{1} << 63));
     CHECK(config.groups_per_level >= 1);
 
-    uint64_t value = config.min_value;
+    uint64_t value = min_value_;
 
-    for (uint64_t i = 0; i < config.exact_until && value <= config.max_value; ++i, ++value) {
+    for (uint64_t i = 0; i < config.exact_until && value <= max_value_; ++i, ++value) {
         buckets_.push_back(Bucket{.start = value, .extra_bits = 0});
     }
 
-    for (uint32_t extra = 1; value <= config.max_value; ++extra) {
+    for (uint32_t extra = 1; value <= max_value_; ++extra) {
         const uint64_t width = uint64_t{1} << extra;
-        for (uint32_t g = 0; g < config.groups_per_level && value <= config.max_value; ++g) {
-            const uint64_t span_length = std::min(width, config.max_value - value + 1);
+        for (uint32_t g = 0; g < config.groups_per_level && value <= max_value_; ++g) {
+            const uint64_t span_length = std::min(width, max_value_ - value + 1);
             buckets_.push_back(Bucket{
                 .start = value, .extra_bits = static_cast<uint32_t>(std::bit_width(span_length - 1))
             });
@@ -51,17 +60,17 @@ DistanceTable::DistanceTable(const Config &config) : config_(config), buckets_()
     CHECK(std::has_single_bit(config.groups_per_level)); // bucket_of needs a power of two
     group_shift_ = static_cast<uint32_t>(std::countr_zero(config.groups_per_level));
     exact_count_ = static_cast<uint32_t>(std::min<
-        uint64_t>(config.exact_until, config.max_value - config.min_value + 1));
-    log_start_ = config.min_value + exact_count_;
+        uint64_t>(config.exact_until, max_value_ - min_value_ + 1));
+    log_start_ = min_value_ + exact_count_;
 
-    CHECK(symbol_count() <= VitterEncoder::kMaxAlphabetSize);
+    CHECK(bucket_count() <= VitterEncoder::kMaxAlphabetSize);
 }
 
-uint64_t DistanceTable::min_value() const noexcept { return config_.min_value; }
+uint64_t DistanceTable::min_value() const noexcept { return min_value_; }
 
-uint64_t DistanceTable::max_value() const noexcept { return config_.max_value; }
+uint64_t DistanceTable::max_value() const noexcept { return max_value_; }
 
-uint32_t DistanceTable::symbol_count() const noexcept { return static_cast<uint32_t>(buckets_.size()) + 1; }
+uint32_t DistanceTable::bucket_count() const noexcept { return static_cast<uint32_t>(buckets_.size()) + 1; }
 
 uint32_t DistanceTable::escape_bucket() const noexcept { return static_cast<uint32_t>(buckets_.size()); }
 
@@ -70,8 +79,11 @@ const DistanceTable::Bucket &DistanceTable::bucket(const uint32_t bucket_id) con
 }
 
 uint32_t DistanceTable::bucket_of(const uint64_t value) const noexcept {
+    if (value > max_value_) [[unlikely]] {
+        return escape_bucket();
+    }
     if (value < log_start_) {
-        return static_cast<uint32_t>(value - config_.min_value);
+        return static_cast<uint32_t>(value - min_value_);
     }
     const uint64_t d = value - log_start_;
     const uint64_t q = d >> (group_shift_ + 1);
@@ -81,29 +93,23 @@ uint32_t DistanceTable::bucket_of(const uint64_t value) const noexcept {
     return exact_count_ + (k << group_shift_) + static_cast<uint32_t>(j);
 }
 
-DistanceEncoder::DistanceEncoder(const DistanceTable::Config &config) : table_(config), model_(table_.symbol_count()) {
-}
-
-void DistanceEncoder::encode(const uint64_t value, BitWriter &out) noexcept {
-    if (value > table_.max_value()) [[unlikely]] {
-        model_.encode(table_.escape_bucket(), out);
-        put_escape(value - table_.max_value() - 1, out);
+void DistanceTable::encode_extra(const uint64_t value, BitWriter &out) const {
+    auto bucket = bucket_of(value);
+    if (bucket == escape_bucket()) [[unlikely]] {
+        put_escape(value - max_value() - 1, out);
+        return;
     }
-    CHECK(value >= table_.min_value());
-    const uint32_t bucket_id = table_.bucket_of(value);
-    model_.encode(bucket_id, out);
-    const auto &b = table_.bucket(bucket_id);
+    CHECK(value >= min_value());
+    const auto& b = buckets_[bucket];
     out.put_bits(value - b.start, b.extra_bits);
 }
 
-DistanceDecoder::DistanceDecoder(const DistanceTable::Config &config) : table_(config), model_(table_.symbol_count()) {
-}
-
-uint64_t DistanceDecoder::decode(BitReader &in) {
-    const uint32_t bucket_id = model_.decode(in);
-    if (bucket_id == table_.escape_bucket()) [[unlikely]] {
-        return table_.max_value() + 1 + get_escape(in);
+uint64_t DistanceTable::decode_extra(uint32_t bucket, BitReader &in) const {
+    CHECK(bucket < bucket_count());
+    if (bucket == escape_bucket()) [[unlikely]] {
+        return max_value() + 1 + get_escape(in);
     }
-    const DistanceTable::Bucket &b = table_.bucket(bucket_id);
+    const DistanceTable::Bucket &b = buckets_[bucket];
     return b.start + in.get_bits(b.extra_bits);
 }
+

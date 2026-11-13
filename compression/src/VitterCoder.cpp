@@ -233,7 +233,7 @@ void VitterCoder::refresh_left_child(std::uint32_t b) noexcept {
 // ----------------------------------------------------------------------------
 
 std::uint32_t VitterCoder::decode_one(BitReader& in) noexcept {
-    const std::uint32_t unseen = static_cast<std::uint32_t>(m_);
+    const auto unseen = static_cast<std::uint32_t>(m_);
     // A copy, not a re-read: update() may write anywhere in the tree, and n_
     // reloaded inside the loop would be one more dependency per level.
     const std::uint32_t n = n_;
@@ -247,7 +247,7 @@ std::uint32_t VitterCoder::decode_one(BitReader& in) noexcept {
 
     if (q == unseen) {
         // Landed on the 0-node: read the phase-in index of a brand new symbol.
-        std::uint32_t v = in.get_bits(static_cast<unsigned>(e_));
+        auto v = static_cast<uint32_t>(in.get_bits(static_cast<unsigned>(e_)));
         if (static_cast<std::int32_t>(v) < r_) {
             v = 2u * v + in.get_bit();
         } else {

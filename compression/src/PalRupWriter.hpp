@@ -17,5 +17,4 @@ private:
     void write_literals(const std::vector<Literal> &literals) const noexcept;
     void write_ids(const std::vector<ClauseId> &ids) const noexcept;
 };
-};
 
