@@ -140,10 +140,10 @@ public:
     void encode(std::span<const std::uint32_t> symbols, BitWriter& out) noexcept;
 
     // Reads one symbol and folds it into the model.
-    [[nodiscard]] std::uint32_t decode(BitReader& in) noexcept;
+    [[nodiscard]] std::uint32_t decode(BitReader& in);
 
     // Bulk form; fills `out` completely.
-    void decode(BitReader& in, std::span<std::uint32_t> out) noexcept;
+    void decode(BitReader& in, std::span<std::uint32_t> out);
 
     // Bits that encode(symbol, ...) would emit right now, without emitting or
     // updating anything. Useful for cost estimation.
@@ -232,7 +232,7 @@ private:
 
     // Shared body of decode(). Always inlined: it is three instructions plus
     // the descent, and a call here would cost more than the body.
-    [[nodiscard, gnu::always_inline]] std::uint32_t decode_one(BitReader& in) noexcept;
+    [[nodiscard, gnu::always_inline]] std::uint32_t decode_one(BitReader& in);
 
     // Codeword scratch, for the hypothetical path longer than 64 edges. A path
     // cannot in fact exceed ~46 edges while weights fit in 32 bits (see the

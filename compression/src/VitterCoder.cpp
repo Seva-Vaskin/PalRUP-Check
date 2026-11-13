@@ -232,7 +232,7 @@ void VitterCoder::refresh_left_child(std::uint32_t b) noexcept {
 //  Decoding
 // ----------------------------------------------------------------------------
 
-std::uint32_t VitterCoder::decode_one(BitReader& in) noexcept {
+std::uint32_t VitterCoder::decode_one(BitReader& in) {
     const auto unseen = static_cast<std::uint32_t>(m_);
     // A copy, not a re-read: update() may write anywhere in the tree, and n_
     // reloaded inside the loop would be one more dependency per level.
@@ -261,9 +261,9 @@ std::uint32_t VitterCoder::decode_one(BitReader& in) noexcept {
     return symbol;
 }
 
-std::uint32_t VitterCoder::decode(BitReader& in) noexcept { return decode_one(in); }
+std::uint32_t VitterCoder::decode(BitReader& in) { return decode_one(in); }
 
-void VitterCoder::decode(BitReader& in, std::span<std::uint32_t> out) noexcept {
+void VitterCoder::decode(BitReader& in, std::span<std::uint32_t> out) {
     for (std::uint32_t& symbol : out) {
         symbol = decode_one(in);
     }

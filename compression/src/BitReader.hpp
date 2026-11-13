@@ -11,9 +11,9 @@ public:
 
     BitReader &operator=(const BitReader &) = delete;
 
-    uint32_t get_bit() noexcept;
+    uint32_t get_bit();
 
-    uint64_t get_bits(unsigned count) noexcept;
+    uint64_t get_bits(unsigned count);
 
 private:
     ByteReader &in_;
