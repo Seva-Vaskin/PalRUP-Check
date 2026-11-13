@@ -27,6 +27,24 @@ struct DeleteRecordParams {
     }
 };
 
+struct LiteralParams {
+    DistanceTable::Config first_table = {.exact_until = 3072, .groups_per_level = 64};
+    DistanceTable::Config gap_table = {.exact_until = 3072, .groups_per_level = 64};
+
+    void fields(this auto &self, auto &&f) {
+        f(self.first_table);
+        f(self.gap_table);
+    }
+};
+
+struct ImportRecordParams {
+    DistanceTable::Config id_table = {.exact_until = 256, .groups_per_level = 32};
+
+    void fields(this auto &self, auto &&f) {
+        f(self.id_table);
+    }
+};
+
 struct Params {
     static constexpr std::array<uint8_t, 4> kMagic = {'P', 'R', 'P', 'H'};
     static constexpr uint8_t kVersion = 1;
@@ -41,6 +59,9 @@ struct Params {
     uint32_t thread_count;
 
     DeleteRecordParams delete_record;
+    LiteralParams literals;
+    ImportRecordParams import_record;
+
 
     // TODO
 };

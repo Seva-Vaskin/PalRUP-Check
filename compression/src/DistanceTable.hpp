@@ -41,6 +41,10 @@ public:
 
     void encode_extra(uint64_t value, BitWriter &out) const;
 
+    void encode(uint64_t value, VitterEncoder& model, BitWriter &out, uint32_t offset = 0) const;
+
+    uint64_t decode(VitterDecoder& model, BitReader &in) const;
+
     uint64_t decode_extra(uint32_t bucket, BitReader &in) const;
 
 private:

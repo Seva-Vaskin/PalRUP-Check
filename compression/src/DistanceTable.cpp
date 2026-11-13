@@ -100,8 +100,19 @@ void DistanceTable::encode_extra(const uint64_t value, BitWriter &out) const {
         return;
     }
     CHECK(value >= min_value());
-    const auto& b = buckets_[bucket];
+    const auto &b = buckets_[bucket];
     out.put_bits(value - b.start, b.extra_bits);
+}
+
+void DistanceTable::encode(uint64_t value, VitterEncoder &model, BitWriter &out, uint32_t offset) const {
+    const uint32_t bucket = bucket_of(value);
+    model.encode(offset + bucket, out);
+    encode_extra(value, out);
+}
+
+uint64_t DistanceTable::decode(VitterDecoder &model, BitReader &in) const {
+    const uint32_t bucket = model.decode(in);
+    return decode_extra(bucket, in);
 }
 
 uint64_t DistanceTable::decode_extra(uint32_t bucket, BitReader &in) const {
@@ -112,4 +123,3 @@ uint64_t DistanceTable::decode_extra(uint32_t bucket, BitReader &in) const {
     const DistanceTable::Bucket &b = buckets_[bucket];
     return b.start + in.get_bits(b.extra_bits);
 }
-

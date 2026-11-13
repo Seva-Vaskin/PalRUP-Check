@@ -42,6 +42,10 @@ add_library(palrup-compression STATIC
         src/ByteWriter.cpp
         src/DeleteRecordCoder.cpp
         src/DeleteRecordCoder.hpp
+        src/LiteralCoder.cpp
+        src/LiteralCoder.hpp
+        src/ImportRecordCoder.cpp
+        src/ImportRecordCoder.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)

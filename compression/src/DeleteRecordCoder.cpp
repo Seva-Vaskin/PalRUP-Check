@@ -20,18 +20,6 @@ namespace {
         uint64_t begin;
         uint64_t end;
     };
-
-    void encode_value(VitterEncoder &model, const uint32_t offset, const DistanceTable &table,
-                      const uint64_t value, BitWriter &out) noexcept {
-        const uint32_t bucket = table.bucket_of(value);
-        model.encode(offset + bucket, out);
-        table.encode_extra(value, out);
-    }
-
-    [[nodiscard]] uint64_t decode_value(VitterDecoder &model, const DistanceTable &table, BitReader &in) {
-        const uint32_t bucket = model.decode(in);
-        return table.decode_extra(bucket, in);
-    }
 }
 
 DeleteRecordEncoder::DeleteRecordEncoder(const Params &params) : state_(params.delete_record, params.thread_count) {
@@ -74,11 +62,11 @@ void DeleteRecordEncoder::encode(const DeleteRecord &record, BitWriter &out) {
         state_.gaps_and_threads_model.encode(g.thread, out);
         const auto first = entries[g.begin].local_id;
         CHECK(first >= prev_first);
-        encode_value(state_.first_model, 0, state_.first_table, first - prev_first, out);
+        state_.first_table.encode(first - prev_first, state_.first_model, out, 0);
         prev_first = first;
         for (auto i = g.begin + 1; i < g.end; i++) {
-            auto gap = entries[i].local_id - entries[i - 1].local_id - 1;
-            encode_value(state_.gaps_and_threads_model, state_.thread_count, state_.gaps_table, gap, out);
+            const auto gap = entries[i].local_id - entries[i - 1].local_id - 1;
+            state_.gaps_table.encode(gap, state_.gaps_and_threads_model, out, state_.thread_count);
         }
     }
     state_.gaps_and_threads_model.encode(state_.end, out);
@@ -104,7 +92,7 @@ DeleteRecord DeleteRecordDecoder::decode(BitReader &in) {
         if (symbol < state_.thread_count) {
             // START of group
             thread = symbol;
-            local_id = prev_first + decode_value(state_.first_model, state_.first_table, in);
+            local_id = prev_first + state_.first_table.decode(state_.first_model, in);
             prev_first = local_id;
             in_group = true;
         } else {
