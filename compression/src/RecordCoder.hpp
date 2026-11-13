@@ -1,9 +1,10 @@
 #pragma once
 
+#include "AddRecordCoder.hpp"
 #include "DeleteRecordCoder.hpp"
+#include "ImportRecordCoder.hpp"
 #include "Params.hpp"
 #include "types.hpp"
-#include "DistanceTable.hpp"
 #include "VitterCoder.hpp"
 
 enum class RecordTag : uint32_t {
@@ -12,6 +13,25 @@ enum class RecordTag : uint32_t {
     Import,
     UpdateId,
     Eof,
+};
+
+static_assert(static_cast<uint32_t>(RecordTag::Eof) + 1 == Params::kRecordTagCount);
+
+template<typename VitterModel, typename AddCoder, typename ImportCoder, typename DeleteCoder>
+struct RecordState {
+    bool finished = false;
+
+    VitterModel tag_model;
+    AddCoder add_record;
+    ImportCoder import_record;
+    DeleteCoder delete_record;
+
+    explicit RecordState(const Params &params)
+        : tag_model(Params::kRecordTagCount),
+          add_record(params),
+          import_record(params),
+          delete_record(params) {
+    }
 };
 
 class RecordEncoder {
@@ -24,15 +44,9 @@ public:
 
 private:
     BitWriter &out_;
-    uint64_t last_id_;
-    bool finished_ = false;
-
-    VitterEncoder tag_model_;
-    DeleteRecordEncoder delete_record_encoder_;
+    RecordState<VitterEncoder, AddRecordEncoder, ImportRecordEncoder, DeleteRecordEncoder> state_;
 
     void put_tag(RecordTag tag) noexcept;
-
-    void encode_delete(const DeleteRecord &record) noexcept;
 };
 
 class RecordDecoder {
@@ -43,10 +57,5 @@ public:
 
 private:
     BitReader &in_;
-    uint64_t last_id_;
-    bool finished_ = false;
-
-    VitterDecoder tag_;
-
-    [[nodiscard]] DeleteRecord decode_delete();
+    RecordState<VitterDecoder, AddRecordDecoder, ImportRecordDecoder, DeleteRecordDecoder> state_;
 };

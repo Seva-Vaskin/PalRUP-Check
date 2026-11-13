@@ -1,80 +1,62 @@
 #include "RecordCoder.hpp"
 
-#include "utils.hpp"
-
-RecordEncoder::RecordEncoder(const Params &params, BitWriter &out)
-    : out_(out),
-      last_id_(params.clause_count),
-      tag_model_(Params::kRecordTagCount),
-      delete_record_encoder_(params) {
+RecordEncoder::RecordEncoder(const Params &params, BitWriter &out) : out_(out), state_(params) {
 }
 
 void RecordEncoder::encode(const Record &record) {
-    CHECK(!finished_);
-    if (const auto *del = std::get_if<DeleteRecord>(&record)) {
-        tag_model_.encode(static_cast<std::uint32_t>(RecordTag::Delete), out_);
-        delete_record_encoder_.encode(*del, out_);
+    CHECK(!state_.finished);
+    if (const auto *add = std::get_if<AddRecord>(&record)) {
+        if (state_.add_record.needs_update(add->id)) {
+            put_tag(RecordTag::UpdateId);
+            state_.add_record.encode_update(add->id, out_);
+        }
+        put_tag(RecordTag::Add);
+        state_.add_record.encode(*add, out_);
         return;
     }
-    // TODO(step 4b): Import. TODO(step 4c): Add.
-    throw OperationError("record encoder: Add/Import not implemented yet");
+    if (const auto *imp = std::get_if<ImportRecord>(&record)) {
+        put_tag(RecordTag::Import);
+        state_.import_record.encode(*imp, out_);
+        return;
+    }
+    put_tag(RecordTag::Delete);
+    state_.delete_record.encode(std::get<DeleteRecord>(record), out_);
 }
 
-void RecordEncoder::put_tag(RecordTag tag) noexcept {
-    tag_model_.encode(static_cast<uint32_t>(tag), out_);
+void RecordEncoder::put_tag(const RecordTag tag) noexcept {
+    state_.tag_model.encode(static_cast<uint32_t>(tag), out_);
 }
-
 
 void RecordEncoder::finish() noexcept {
-    CHECK(!finished_);
+    CHECK(!state_.finished);
     put_tag(RecordTag::Eof);
-    finished_ = true;
+    state_.finished = true;
 }
 
-RecordDecoder::RecordDecoder(const Params &params, BitReader &in)
-    : in_(in),
-      last_id_(params.clause_count),
-      tag_(kRecordTagCount),
-      delete_count_(delete_count_config(params)),
-      delete_delta_(delete_delta_config(params)) {
+RecordDecoder::RecordDecoder(const Params &params, BitReader &in) : in_(in), state_(params) {
 }
 
 bool RecordDecoder::decode(Record &out) {
-    if (finished_) {
-        return false;
+    while (!state_.finished) {
+        switch (static_cast<RecordTag>(state_.tag_model.decode(in_))) {
+            case RecordTag::Add:
+                out = state_.add_record.decode(in_);
+                return true;
+            case RecordTag::Import:
+                out = state_.import_record.decode(in_);
+                return true;
+            case RecordTag::Delete:
+                out = state_.delete_record.decode(in_);
+                return true;
+            case RecordTag::UpdateId:
+                state_.add_record.decode_update(in_);
+                break;
+            case RecordTag::Eof:
+                state_.finished = true;
+                break;
+            default:
+                throw OperationError("record decoder: corrupt stream (unknown tag)");
+        }
     }
-    switch (static_cast<RecordTag>(tag_.decode(in_))) {
-        case RecordTag::Delete:
-            out = decode_delete();
-            return true;
-        case RecordTag::Eof:
-            finished_ = true;
-            return false;
-        case RecordTag::Add:
-        case RecordTag::Import:
-        case RecordTag::UpdateId:
-            // TODO(step 4b): Import. TODO(step 4c): Add, UpdateId.
-            throw OperationError("record decoder: Add/Import not implemented yet");
-    }
-    throw OperationError("record decoder: corrupt stream (unknown tag)");
-}
-
-// uint64_t RecordDecoder::get_length(DistanceDecoder &model) const {
-//     const uint64_t n = model.decode(in_);
-//     if (n > kMaxListLength) {
-//         throw OperationError("record decoder: corrupt stream (list too long)");
-//     }
-//     return n;
-// }
-
-DeleteRecord RecordDecoder::decode_delete() {
-    DeleteRecord record;
-    const uint64_t n = get_length(delete_count_);
-    uint64_t base = last_id_;
-    for (uint64_t i = 0; i < n; ++i) {
-        const uint64_t code = delete_delta_.decode(in_);
-        base = base - zigzag_decode(code);
-        record.ids.push_back(ClauseId{base});
-    }
-    return record;
+    return false;
 }
