@@ -4,7 +4,7 @@
 
 template<typename VitterModel>
 struct DeleteState {
-    uint64_t thread_count;
+    uint32_t thread_count;
 
     DistanceTable gaps_table;
     uint32_t end;
@@ -14,7 +14,7 @@ struct DeleteState {
     DistanceTable first_table;
     VitterModel first_model;
 
-    explicit DeleteState(const DeleteRecordParams &params, uint64_t thread_count)
+    explicit DeleteState(const DeleteRecordParams &params, const uint32_t thread_count)
         : thread_count(thread_count),
 
           gaps_table(params.gaps_table, 0, Params::kMaxIdDelta),

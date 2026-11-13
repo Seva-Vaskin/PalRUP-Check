@@ -52,6 +52,8 @@ add_library(palrup-compression STATIC
         src/HintCoder.hpp
         src/AddRecordCoder.cpp
         src/AddRecordCoder.hpp
+        src/PalRupCodec.cpp
+        src/PalRupCodec.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)
@@ -65,6 +67,10 @@ target_include_directories(palrup-compression
 
 target_compile_features(palrup-compression
         PUBLIC cxx_std_23
+)
+
+target_compile_options(palrup-compression
+        PRIVATE -Wall -Wextra
 )
 
 set_target_properties(palrup-compression PROPERTIES

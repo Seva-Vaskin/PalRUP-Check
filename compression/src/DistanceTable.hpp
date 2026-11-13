@@ -48,7 +48,6 @@ public:
     uint64_t decode_extra(uint32_t bucket, BitReader &in) const;
 
 private:
-    Config config_;
     std::vector<Bucket> buckets_;
     uint64_t log_start_;
     uint32_t exact_count_;

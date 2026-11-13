@@ -1,21 +1,11 @@
 #pragma once
 
-#include "LZWindow.hpp"
+#include <array>
+#include <cstdint>
+
+#include "ByteReader.hpp"
+#include "ByteWriter.hpp"
 #include "DistanceTable.hpp"
-
-struct LZParams {
-    LZWindow::Config window;
-    DistanceTable::Config length;
-    DistanceTable::Config distance;
-
-    [[nodiscard]] uint64_t window_size() const noexcept;
-
-    void fields(this auto &self, auto &&f) {
-        f(self.window);
-        f(self.length);
-        f(self.distance);
-    }
-};
 
 struct DeleteRecordParams {
     DistanceTable::Config gaps_table = {.exact_until = 256, .groups_per_level = 32};
@@ -71,6 +61,7 @@ struct Params {
     static constexpr uint64_t kMaxListLength = UINT32_MAX;
     static constexpr uint64_t kMaxThreadCount = uint64_t{1} << 16;
     static constexpr uint32_t kRecordTagCount = 5;
+    static constexpr uint64_t kMaxLiteralCode = UINT32_MAX;
 
     uint32_t variable_count = 0;
     uint64_t clause_count = 0;

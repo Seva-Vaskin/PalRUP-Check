@@ -6,17 +6,17 @@
 
 namespace {
     struct Entry {
-        uint64_t thread;
+        uint32_t thread;
         uint64_t local_id;
 
-        Entry(const ClauseId id, const uint64_t thread_count) {
-            thread = id.value % thread_count;
+        Entry(const ClauseId id, const uint32_t thread_count) {
+            thread = static_cast<uint32_t>(id.value % thread_count);
             local_id = id.value / thread_count;
         }
     };
 
     struct Group {
-        uint64_t thread;
+        uint32_t thread;
         uint64_t begin;
         uint64_t end;
     };

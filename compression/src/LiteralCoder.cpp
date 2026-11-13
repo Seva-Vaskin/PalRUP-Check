@@ -19,8 +19,8 @@ void LiteralEncoder::encode(std::span<const Literal> literals, BitWriter &out) {
         return;
     }
 
-    if (codes.front() == 0 || codes.back() > state_.max_code) {
-        throw OperationError("literal encoder: literal 0 or above variable_count");
+    if (codes.front() == 0) {
+        throw OperationError("literal encoder: literal 0");
     }
 
     state_.first_table.encode(codes.front(), state_.first_model, out, 0);
@@ -45,7 +45,7 @@ std::vector<Literal> LiteralDecoder::decode(BitReader &in) {
         return literals;
     }
     uint64_t code = state_.first_table.decode_extra(first, in);
-    if (code > state_.max_code) {
+    if (code > Params::kMaxLiteralCode) {
         throw OperationError("literal decoder: corrupt stream (literal out of range)");
     }
     literals.push_back(Literal{static_cast<int32_t>(zigzag_decode(code))});
@@ -56,7 +56,7 @@ std::vector<Literal> LiteralDecoder::decode(BitReader &in) {
             return literals;
         }
         const uint64_t gap = state_.gap_table.decode_extra(symbol, in);
-        if (gap > state_.max_code - code) {
+        if (gap > Params::kMaxLiteralCode - code) {
             throw OperationError("literal decoder: corrupt stream (literal out of range)");
         }
         code += gap;

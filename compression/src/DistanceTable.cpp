@@ -7,7 +7,7 @@
 
 namespace {
     [[nodiscard]] uint64_t get_escape(BitReader &in) {
-        const uint32_t width = in.get_bits(7);
+        const auto width = static_cast<uint32_t>(in.get_bits(7));
         if (width > 64) {
             throw OperationError("corrupt stream: escape width above 64");
         }
@@ -34,7 +34,7 @@ bool DistanceTable::Config::valid() const noexcept {
 }
 
 DistanceTable::DistanceTable(const Config &config, const uint64_t min_value,
-                             const uint64_t max_value) : config_(config), buckets_(), min_value_(min_value),
+                             const uint64_t max_value) : buckets_(), min_value_(min_value),
                                                          max_value_(max_value) {
     CHECK(min_value_ <= max_value);
     CHECK(max_value_ < (uint64_t{1} << 63));
