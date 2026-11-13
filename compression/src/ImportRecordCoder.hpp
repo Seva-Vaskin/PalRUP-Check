@@ -13,7 +13,7 @@ struct ImportState {
 
     LiteralCoder literals;
 
-    explicit ImportState(const ImportRecordParams &params, const LiteralParams &literal_params, uint64_t variable_count)
+    explicit ImportState(const ImportRecordParams &params, const LiteralParams &literal_params, uint32_t variable_count)
         : id_table(params.id_table, 0, Params::kMaxIdDelta),
           id_model(id_table.bucket_count()),
           literals(literal_params, variable_count) {
