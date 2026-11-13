@@ -46,6 +46,8 @@ add_library(palrup-compression STATIC
         src/LiteralCoder.hpp
         src/ImportRecordCoder.cpp
         src/ImportRecordCoder.hpp
+        src/CNFHeader.cpp
+        src/CNFHeader.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)
