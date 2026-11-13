@@ -10,10 +10,6 @@ project(
 
 add_library(palrup-compression STATIC
         include/compression.h
-        src/Compressor.cpp
-        src/Compressor.hpp
-        src/Decompressor.cpp
-        src/Decompressor.hpp
         src/types.hpp
         src/ByteReader.hpp
         src/ByteWriter.hpp
@@ -52,8 +48,7 @@ add_library(palrup-compression STATIC
         src/HintCoder.hpp
         src/AddRecordCoder.cpp
         src/AddRecordCoder.hpp
-        src/PalRupCodec.cpp
-        src/PalRupCodec.hpp
+        src/PalRupCompression.cpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)
