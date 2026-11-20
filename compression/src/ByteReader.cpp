@@ -1,6 +1,8 @@
 #include "ByteReader.hpp"
 
-ByteReader::ByteReader(std::FILE *file) noexcept: file_(file) {
+#include "error.hpp"
+
+ByteReader::ByteReader(std::FILE *file) noexcept : file_(file) {
 }
 
 ByteReader::~ByteReader() { close(); }
@@ -19,16 +21,26 @@ int ByteReader::get() noexcept {
     return buf_[pos_++];
 }
 
+std::span<const uint8_t> ByteReader::buffer() const noexcept {
+    return {buf_ + pos_, size_ - pos_};
+}
+
+void ByteReader::consume(const size_t count) noexcept {
+    CHECK(count <= size_ - pos_);
+    pos_ += count;
+}
+
 void ByteReader::close() noexcept {
     if (file_ == nullptr) {
         return;
     }
-    closed_ok_ = std::ferror(file_) == 0;
-    closed_ok_ = std::fclose(file_) == 0 && closed_ok_;
+    const bool read_error = std::ferror(file_) != 0;
+    const bool close_error = std::fclose(file_) != 0;
+    closed_with_error_ = read_error || close_error;
     file_ = nullptr;
     pos_ = size_ = 0;
 }
 
-bool ByteReader::good() const noexcept {
-    return file_ != nullptr ? std::ferror(file_) == 0 : closed_ok_;
+bool ByteReader::has_error() const noexcept {
+    return file_ != nullptr ? std::ferror(file_) != 0 : closed_with_error_;
 }

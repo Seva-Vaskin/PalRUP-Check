@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 
 #include "error.hpp"
 
@@ -21,13 +22,13 @@ public:
 
     void close() noexcept;
 
-    [[nodiscard]] bool good() const noexcept;
+    [[nodiscard]] bool has_error() const noexcept;
 
 private:
     static constexpr size_t kSize = 4096;
 
     uint8_t buf_[kSize]{};
-    FILE *file_;
+    std::FILE *file_;
     size_t pos_ = 0;
-    bool closed_ok_ = false;
+    bool closed_with_error_ = false;
 };

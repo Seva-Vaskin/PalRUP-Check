@@ -24,11 +24,12 @@ void ByteWriter::close() noexcept {
         return;
     }
     flush();
-    closed_ok_ = std::ferror(file_) == 0;
-    closed_ok_ = std::fclose(file_) == 0 && closed_ok_;
+    const bool write_error = std::ferror(file_) != 0;
+    const bool close_error = std::fclose(file_) != 0;
+    closed_with_error_ = write_error || close_error;
     file_ = nullptr;
 }
 
-bool ByteWriter::good() const noexcept {
-    return file_ != nullptr ? std::ferror(file_) == 0 : closed_ok_;
+bool ByteWriter::has_error() const noexcept {
+    return file_ != nullptr ? std::ferror(file_) != 0 : closed_with_error_;
 }

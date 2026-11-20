@@ -16,7 +16,12 @@ public:
     uint64_t get_bits(unsigned count);
 
 private:
+    static constexpr unsigned kBufferBits = 64;
+    static constexpr unsigned kRefillLimit = kBufferBits - 8;
+
     ByteReader &in_;
-    uint32_t byte_ = 0;
+    uint64_t buf_ = 0;
     unsigned cnt_ = 0;
+
+    void refill() noexcept;
 };

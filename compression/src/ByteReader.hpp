@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <span>
 
 class ByteReader {
 public:
@@ -16,9 +17,13 @@ public:
 
     [[nodiscard]] int get() noexcept;
 
+    [[nodiscard]] std::span<const uint8_t> buffer() const noexcept;
+
+    void consume(size_t count) noexcept;
+
     void close() noexcept;
 
-    [[nodiscard]] bool good() const noexcept;
+    [[nodiscard]] bool has_error() const noexcept;
 
 private:
     static constexpr size_t kSize = 4096;
@@ -27,5 +32,5 @@ private:
     std::FILE *file_;
     size_t pos_ = 0;
     size_t size_ = 0;
-    bool closed_ok_ = false;
+    bool closed_with_error_ = false;
 };

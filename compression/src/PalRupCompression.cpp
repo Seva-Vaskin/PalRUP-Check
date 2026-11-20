@@ -73,7 +73,7 @@ void PalRupCompressor::close() {
     closed_ = true;
     encoder_.finish();
     bits_.close();
-    if (!bytes_.good()) {
+    if (bytes_.has_error()) {
         throw OperationError("compressor: write error");
     }
 }
@@ -95,7 +95,7 @@ void PalRupCompressor::compress_file(const char *proof_path, const char *cnf_pat
     while (reader.read(record)) {
         compressor.encoder_.encode(record);
     }
-    if (!proof.good()) {
+    if (proof.has_error()) {
         throw OperationError(std::string("read error: ") + proof_path);
     }
     compressor.close();
@@ -127,7 +127,7 @@ void PalRupDecompressor::decompress_file(const char *input_path, const char *out
         writer.write(record);
     }
     bytes.close();
-    if (!bytes.good()) {
+    if (bytes.has_error()) {
         throw OperationError(std::string("write error: ") + output_path);
     }
 }
