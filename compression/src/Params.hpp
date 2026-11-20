@@ -28,8 +28,8 @@ struct ImportRecordParams {
 
 struct LZParams {
     LZWindow::Config window = {
-        .window_log = 15, .hash_bits = 16, .max_match = 1u << 16,
-        .nice_match = 256, .max_search_depth = 128
+        .window_log = 17, .hash_bits = 16, .max_match = 1u << 16,
+        .nice_match = 256, .max_search_depth = 16
     };
     DistanceTable::Config length_table = {.exact_until = 64, .groups_per_level = 8};
     DistanceTable::Config distance_table = {.exact_until = 64, .groups_per_level = 16};
