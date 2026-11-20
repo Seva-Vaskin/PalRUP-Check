@@ -1,5 +1,8 @@
 #pragma once
 
+#include <span>
+#include <vector>
+
 #include "MatchCoder.hpp"
 #include "Params.hpp"
 #include "types.hpp"
@@ -41,14 +44,17 @@ public:
 
 private:
     LiteralState<VitterEncoder, MatchEncoder> state_;
+    std::vector<uint64_t> scratch_codes_;
+    std::vector<uint64_t> scratch_single_prefix_;
 };
 
 class LiteralDecoder {
 public:
     explicit LiteralDecoder(const LiteralParams &params, uint32_t variable_count);
 
-    [[nodiscard]] std::vector<Literal> decode(BitReader &in);
+    void decode(BitReader &in, std::vector<Literal> &out);
 
 private:
     LiteralState<VitterDecoder, MatchDecoder> state_;
+    std::vector<uint64_t> scratch_codes_;
 };

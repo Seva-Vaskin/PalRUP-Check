@@ -4,28 +4,31 @@
 #include "utils.hpp"
 #include "vbl.hpp"
 
-bool PalRupReader::read(Record &out) const {
+const Record *PalRupReader::read() {
     switch (in_.get()) {
         case EOF:
-            return false;
+            return nullptr;
         case 'a': {
-            AddRecord r{.id = read_id()};
-            read_literals(r.literals);
-            read_ids(r.hints);
-            out = std::move(r);
-            return true;
+            auto &record = std::get<AddRecord>(add_slot_);
+            record.id = read_id();
+            record.literals.clear();
+            record.hints.clear();
+            read_literals(record.literals);
+            read_ids(record.hints);
+            return &add_slot_;
         }
         case 'i': {
-            ImportRecord r{.id = read_id()};
-            read_literals(r.literals);
-            out = std::move(r);
-            return true;
+            auto &record = std::get<ImportRecord>(import_slot_);
+            record.id = read_id();
+            record.literals.clear();
+            read_literals(record.literals);
+            return &import_slot_;
         }
         case 'd': {
-            DeleteRecord r;
-            read_ids(r.ids);
-            out = std::move(r);
-            return true;
+            auto &record = std::get<DeleteRecord>(delete_slot_);
+            record.ids.clear();
+            read_ids(record.ids);
+            return &delete_slot_;
         }
         default:
             throw OperationError("proof: unknown record tag");

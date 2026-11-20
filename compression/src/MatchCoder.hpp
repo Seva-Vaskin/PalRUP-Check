@@ -40,7 +40,7 @@ public:
 private:
     MatchState<VitterEncoder> state_;
     LZWindow window_;
-    uint64_t max_search_depth_;
+    mutable std::vector<LZWindow::Match> scratch_candidates_;
 };
 
 class MatchDecoder {

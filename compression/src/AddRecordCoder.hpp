@@ -45,7 +45,7 @@ public:
 
     void decode_update(BitReader &in);
 
-    [[nodiscard]] AddRecord decode(BitReader &in);
+    void decode(BitReader &in, AddRecord &out);
 
 private:
     AddState<VitterDecoder, LiteralDecoder, HintDecoder> state_;

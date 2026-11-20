@@ -36,18 +36,18 @@ void RecordEncoder::finish() noexcept {
 RecordDecoder::RecordDecoder(const Params &params, BitReader &in) : in_(in), state_(params) {
 }
 
-bool RecordDecoder::decode(Record &out) {
+const Record *RecordDecoder::decode() {
     while (!state_.finished) {
         switch (static_cast<RecordTag>(state_.tag_model.decode(in_))) {
             case RecordTag::Add:
-                out = state_.add_record.decode(in_);
-                return true;
+                state_.add_record.decode(in_, std::get<AddRecord>(add_slot_));
+                return &add_slot_;
             case RecordTag::Import:
-                out = state_.import_record.decode(in_);
-                return true;
+                state_.import_record.decode(in_, std::get<ImportRecord>(import_slot_));
+                return &import_slot_;
             case RecordTag::Delete:
-                out = state_.delete_record.decode(in_);
-                return true;
+                state_.delete_record.decode(in_, std::get<DeleteRecord>(delete_slot_));
+                return &delete_slot_;
             case RecordTag::UpdateId:
                 state_.add_record.decode_update(in_);
                 break;
@@ -58,5 +58,5 @@ bool RecordDecoder::decode(Record &out) {
                 throw OperationError("record decoder: corrupt stream (unknown tag)");
         }
     }
-    return false;
+    return nullptr;
 }

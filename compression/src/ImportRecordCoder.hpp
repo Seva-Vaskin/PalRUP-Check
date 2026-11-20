@@ -34,7 +34,7 @@ class ImportRecordDecoder {
 public:
     explicit ImportRecordDecoder(const Params& params);
 
-    [[nodiscard]] ImportRecord decode(BitReader &in);
+    void decode(BitReader &in, ImportRecord &out);
 
 private:
     ImportState<VitterDecoder, LiteralDecoder> state_;

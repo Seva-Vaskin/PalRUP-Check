@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-#include <cstdio>
 #include <span>
 
 #include "BitReader.hpp"
@@ -59,7 +57,7 @@ public:
 
     PalRupDecompressor &operator=(const PalRupDecompressor &) = delete;
 
-    [[nodiscard]] bool read(Record &out);
+    [[nodiscard]] const Record *read();
 
     void close();
 

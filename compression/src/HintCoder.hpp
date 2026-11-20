@@ -42,14 +42,17 @@ public:
 
 private:
     HintState<VitterEncoder, MatchEncoder> state_;
+    std::vector<uint64_t> scratch_tokens_;
+    std::vector<uint64_t> scratch_single_prefix_;
 };
 
 class HintDecoder {
 public:
     explicit HintDecoder(const HintParams &params);
 
-    [[nodiscard]] std::vector<ClauseId> decode(uint64_t id, BitReader &in);
+    void decode(uint64_t id, BitReader &in, std::vector<ClauseId> &out);
 
 private:
     HintState<VitterDecoder, MatchDecoder> state_;
+    std::vector<uint64_t> scratch_tokens_;
 };

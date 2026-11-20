@@ -2,26 +2,6 @@
 
 #include <algorithm>
 
-#include "utils.hpp"
-
-namespace {
-    struct Entry {
-        uint32_t thread;
-        uint64_t local_id;
-
-        Entry(const ClauseId id, const uint32_t thread_count) {
-            thread = static_cast<uint32_t>(id.value % thread_count);
-            local_id = id.value / thread_count;
-        }
-    };
-
-    struct Group {
-        uint32_t thread;
-        uint64_t begin;
-        uint64_t end;
-    };
-}
-
 DeleteRecordEncoder::DeleteRecordEncoder(const Params &params) : state_(params.delete_record, params.thread_count) {
 }
 
@@ -29,43 +9,45 @@ void DeleteRecordEncoder::encode(const DeleteRecord &record, BitWriter &out) {
     if (record.ids.size() > Params::kMaxListLength) {
         throw OperationError("delete encoder: Delete has more than kMaxListLength ids");
     }
-    std::vector<Entry> entries;
-    entries.reserve(record.ids.size());
-    for (auto &id: record.ids) {
-        entries.emplace_back(id, state_.thread_count);
+    scratch_entries_.clear();
+    for (const ClauseId id: record.ids) {
+        scratch_entries_.push_back(Entry{
+            .thread = static_cast<uint32_t>(id.value % state_.thread_count),
+            .local_id = id.value / state_.thread_count,
+        });
     }
-    std::ranges::sort(entries, {}, [](const Entry &e) {
+    std::ranges::sort(scratch_entries_, {}, [](const Entry &e) {
         return std::make_pair(e.thread, e.local_id);
     });
 
-    std::vector<Group> groups;
-    for (uint64_t i = 0; i < entries.size(); i++) {
-        const auto &entry = entries[i];
-        if (i == 0 || entries[i - 1].thread != entry.thread) {
-            groups.push_back(Group{
+    scratch_groups_.clear();
+    for (uint64_t i = 0; i < scratch_entries_.size(); i++) {
+        const auto &entry = scratch_entries_[i];
+        if (i == 0 || scratch_entries_[i - 1].thread != entry.thread) {
+            scratch_groups_.push_back(Group{
                 .thread = entry.thread,
                 .begin = i,
                 .end = i + 1,
             });
-        } else if (entries[i - 1].local_id == entry.local_id) {
+        } else if (scratch_entries_[i - 1].local_id == entry.local_id) {
             throw OperationError("delete encoder: duplicate id in Delete");
         } else {
-            groups.back().end = i + 1;
+            scratch_groups_.back().end = i + 1;
         }
     }
-    std::ranges::sort(groups, {}, [&entries](const Group &g) {
-        return std::make_pair(entries[g.begin].local_id, g.thread);
+    std::ranges::sort(scratch_groups_, {}, [this](const Group &g) {
+        return std::make_pair(scratch_entries_[g.begin].local_id, g.thread);
     });
 
     uint64_t prev_first = 0;
-    for (const Group &g: groups) {
+    for (const Group &g: scratch_groups_) {
         state_.gaps_and_threads_model.encode(g.thread, out);
-        const auto first = entries[g.begin].local_id;
+        const auto first = scratch_entries_[g.begin].local_id;
         CHECK(first >= prev_first);
         state_.first_table.encode(first - prev_first, state_.first_model, out, 0);
         prev_first = first;
         for (auto i = g.begin + 1; i < g.end; i++) {
-            const auto gap = entries[i].local_id - entries[i - 1].local_id - 1;
+            const auto gap = scratch_entries_[i].local_id - scratch_entries_[i - 1].local_id - 1;
             state_.gaps_table.encode(gap, state_.gaps_and_threads_model, out, state_.thread_count);
         }
     }
@@ -75,8 +57,8 @@ void DeleteRecordEncoder::encode(const DeleteRecord &record, BitWriter &out) {
 DeleteRecordDecoder::DeleteRecordDecoder(const Params &params) : state_(params.delete_record, params.thread_count) {
 }
 
-DeleteRecord DeleteRecordDecoder::decode(BitReader &in) {
-    DeleteRecord record;
+void DeleteRecordDecoder::decode(BitReader &in, DeleteRecord &out) {
+    out.ids.clear();
     uint64_t prev_first = 0;
     uint64_t thread = 0;
     uint64_t local_id = 0;
@@ -87,7 +69,7 @@ DeleteRecord DeleteRecordDecoder::decode(BitReader &in) {
 
         if (symbol == state_.end) {
             // END
-            return record;
+            return;
         }
         if (symbol < state_.thread_count) {
             // START of group
@@ -100,13 +82,13 @@ DeleteRecord DeleteRecordDecoder::decode(BitReader &in) {
             if (!in_group) {
                 throw OperationError("delete decoder: corrupt stream (gap before any group)");
             }
-            const auto bucket = static_cast<uint32_t>(symbol - state_.thread_count);
+            const auto bucket = symbol - state_.thread_count;
             local_id += state_.gaps_table.decode_extra(bucket, in) + 1;
         }
 
-        if (record.ids.size() == Params::kMaxListLength) {
+        if (out.ids.size() == Params::kMaxListLength) {
             throw OperationError("delete decoder: corrupt stream (list too long)");
         }
-        record.ids.push_back(ClauseId{local_id * state_.thread_count + thread});
+        out.ids.push_back(ClauseId{local_id * state_.thread_count + thread});
     }
 }

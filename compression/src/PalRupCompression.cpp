@@ -90,10 +90,9 @@ void PalRupCompressor::compress_file(const char *proof_path, const char *cnf_pat
 
     ByteReader proof(open_file(proof_path, "rb"));
     PalRupCompressor compressor(output_path, options);
-    const PalRupReader reader(proof);
-    Record record;
-    while (reader.read(record)) {
-        compressor.encoder_.encode(record);
+    PalRupReader reader(proof);
+    while (const Record *record = reader.read()) {
+        compressor.encoder_.encode(*record);
     }
     if (proof.has_error()) {
         throw OperationError(std::string("read error: ") + proof_path);
@@ -110,8 +109,8 @@ PalRupDecompressor::PalRupDecompressor(std::FILE *file)
       decoder_(Params::read(bytes_), bits_) {
 }
 
-bool PalRupDecompressor::read(Record &out) {
-    return decoder_.decode(out);
+const Record *PalRupDecompressor::read() {
+    return decoder_.decode();
 }
 
 void PalRupDecompressor::close() {
@@ -122,9 +121,8 @@ void PalRupDecompressor::decompress_file(const char *input_path, const char *out
     PalRupDecompressor decompressor(input_path);
     ByteWriter bytes(open_file(output_path, "wb"));
     const PalRupWriter writer(bytes);
-    Record record;
-    while (decompressor.read(record)) {
-        writer.write(record);
+    while (const Record *record = decompressor.read()) {
+        writer.write(*record);
     }
     bytes.close();
     if (bytes.has_error()) {

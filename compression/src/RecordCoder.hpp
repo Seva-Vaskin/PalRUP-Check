@@ -53,9 +53,13 @@ class RecordDecoder {
 public:
     RecordDecoder(const Params &params, BitReader &in);
 
-    [[nodiscard]] bool decode(Record &out);
+    [[nodiscard]] const Record *decode();
 
 private:
     BitReader &in_;
     RecordState<VitterDecoder, AddRecordDecoder, ImportRecordDecoder, DeleteRecordDecoder> state_;
+
+    Record add_slot_ = AddRecord{};
+    Record import_slot_ = ImportRecord{};
+    Record delete_slot_ = DeleteRecord{};
 };

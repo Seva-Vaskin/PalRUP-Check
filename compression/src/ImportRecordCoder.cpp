@@ -1,7 +1,3 @@
-//
-// Created by Vsevolod Vaskin on 13.11.26.
-//
-
 #include "ImportRecordCoder.hpp"
 
 #include "utils.hpp"
@@ -21,11 +17,9 @@ ImportRecordDecoder::ImportRecordDecoder(const Params &params)
     : state_(params.import_record, params.literals, params.variable_count) {
 }
 
-ImportRecord ImportRecordDecoder::decode(BitReader &in) {
-    ImportRecord record;
+void ImportRecordDecoder::decode(BitReader &in, ImportRecord &out) {
     const uint64_t delta = state_.id_table.decode(state_.id_model, in);
-    record.id = ClauseId{state_.prev_id + static_cast<uint64_t>(zigzag_decode(delta))};
-    state_.prev_id = record.id.value;
-    record.literals = state_.literals.decode(in);
-    return record;
+    out.id = ClauseId{state_.prev_id + static_cast<uint64_t>(zigzag_decode(delta))};
+    state_.prev_id = out.id.value;
+    state_.literals.decode(in, out.literals);
 }

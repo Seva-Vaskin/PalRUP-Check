@@ -7,10 +7,14 @@ public:
     explicit PalRupReader(ByteReader &in) noexcept : in_(in) {
     }
 
-    bool read(Record &out) const;
+    [[nodiscard]] const Record *read();
 
 private:
     ByteReader &in_;
+
+    Record add_slot_ = AddRecord{};
+    Record import_slot_ = ImportRecord{};
+    Record delete_slot_ = DeleteRecord{};
 
     [[nodiscard]] ClauseId read_id() const;
 

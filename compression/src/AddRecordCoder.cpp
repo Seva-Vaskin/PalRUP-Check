@@ -30,11 +30,9 @@ void AddRecordDecoder::decode_update(BitReader &in) {
     state_.next_id += static_cast<uint64_t>(zigzag_decode(jump));
 }
 
-AddRecord AddRecordDecoder::decode(BitReader &in) {
-    AddRecord record;
-    record.id = ClauseId{state_.next_id};
-    record.literals = state_.literals.decode(in);
-    record.hints = state_.hints.decode(record.id.value, in);
-    state_.next_id = record.id.value + state_.thread_count;
-    return record;
+void AddRecordDecoder::decode(BitReader &in, AddRecord &out) {
+    out.id = ClauseId{state_.next_id};
+    state_.literals.decode(in, out.literals);
+    state_.hints.decode(out.id.value, in, out.hints);
+    state_.next_id = out.id.value + state_.thread_count;
 }

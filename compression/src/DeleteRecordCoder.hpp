@@ -34,14 +34,27 @@ public:
     void encode(const DeleteRecord &record, BitWriter &out);
 
 private:
+    struct Entry {
+        uint32_t thread;
+        uint64_t local_id;
+    };
+
+    struct Group {
+        uint32_t thread;
+        uint64_t begin;
+        uint64_t end;
+    };
+
     DeleteState<VitterEncoder> state_;
+    std::vector<Entry> scratch_entries_;
+    std::vector<Group> scratch_groups_;
 };
 
 class DeleteRecordDecoder {
 public:
     explicit DeleteRecordDecoder(const Params &params);
 
-    [[nodiscard]] DeleteRecord decode(BitReader &in);
+    void decode(BitReader &in, DeleteRecord &out);
 
 private:
     DeleteState<VitterDecoder> state_;

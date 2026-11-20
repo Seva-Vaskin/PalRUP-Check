@@ -9,43 +9,44 @@ LiteralEncoder::LiteralEncoder(const LiteralParams &params, uint32_t variable_co
 
 void LiteralEncoder::encode(const std::span<const Literal> literals, BitWriter &out) {
     const size_t n = literals.size();
-    std::vector<uint64_t> codes(n);
+    scratch_codes_.resize(n);
     for (size_t k = 0; k < n; ++k) {
-        codes[k] = zigzag_encode(literals[k].value);
+        scratch_codes_[k] = zigzag_encode(literals[k].value);
     }
-    std::ranges::sort(codes);
+    std::ranges::sort(scratch_codes_);
 
-    if (n > 0 && codes.front() == 0) {
+    if (n > 0 && scratch_codes_.front() == 0) {
         throw OperationError("literal encoder: literal 0");
     }
     for (size_t k = 1; k < n; ++k) {
-        if (codes[k] == codes[k - 1]) {
+        if (scratch_codes_[k] == scratch_codes_[k - 1]) {
             throw OperationError("literal encoder: duplicate literal in clause");
         }
     }
 
-    std::vector<uint64_t> single_prefix(n + 1);
+    scratch_single_prefix_.resize(n + 1);
+    scratch_single_prefix_[0] = 0;
     for (size_t k = 0; k < n; ++k) {
         const uint32_t cost = k == 0
-                                  ? state_.first_table.cost(codes[0], state_.first_model, state_.match_zone)
-                                  : state_.gap_table.cost(codes[k] - codes[k - 1], state_.gap_model,
+                                  ? state_.first_table.cost(scratch_codes_[0], state_.first_model, state_.match_zone)
+                                  : state_.gap_table.cost(scratch_codes_[k] - scratch_codes_[k - 1], state_.gap_model,
                                                           state_.match_zone);
-        single_prefix[k + 1] = single_prefix[k] + cost;
+        scratch_single_prefix_[k + 1] = scratch_single_prefix_[k] + cost;
     }
 
     for (size_t i = 0; i < n;) {
         VitterEncoder &model = i == 0 ? state_.first_model : state_.gap_model;
-        const auto remaining = std::span<const uint64_t>(codes).subspan(i);
-        const auto prefix = std::span<const uint64_t>(single_prefix).subspan(i);
+        const auto remaining = std::span<const uint64_t>(scratch_codes_).subspan(i);
+        const auto prefix = std::span<const uint64_t>(scratch_single_prefix_).subspan(i);
 
         if (const auto match = state_.matches.best(remaining, prefix, model)) {
             state_.matches.encode(*match, model, out);
             i += match->length;
         } else if (i == 0) {
-            state_.first_table.encode(codes[0], model, out, state_.match_zone);
+            state_.first_table.encode(scratch_codes_[0], model, out, state_.match_zone);
             ++i;
         } else {
-            state_.gap_table.encode(codes[i] - codes[i - 1], model, out, state_.match_zone);
+            state_.gap_table.encode(scratch_codes_[i] - scratch_codes_[i - 1], model, out, state_.match_zone);
             ++i;
         }
     }
@@ -56,17 +57,17 @@ void LiteralEncoder::encode(const std::span<const Literal> literals, BitWriter &
         state_.gap_model.encode(state_.gap_end, out);
     }
 
-    state_.matches.insert(codes);
+    state_.matches.insert(scratch_codes_);
 }
 
 LiteralDecoder::LiteralDecoder(const LiteralParams &params, const uint32_t variable_count)
     : state_(params, variable_count) {
 }
 
-std::vector<Literal> LiteralDecoder::decode(BitReader &in) {
-    std::vector<uint64_t> codes;
+void LiteralDecoder::decode(BitReader &in, std::vector<Literal> &out) {
+    scratch_codes_.clear();
     for (;;) {
-        const bool first = codes.empty();
+        const bool first = scratch_codes_.empty();
         VitterDecoder &model = first ? state_.first_model : state_.gap_model;
         const uint32_t end = first ? state_.first_end : state_.gap_end;
 
@@ -75,31 +76,29 @@ std::vector<Literal> LiteralDecoder::decode(BitReader &in) {
             break;
         }
         if (symbol < state_.match_zone) {
-            state_.matches.decode(symbol, in, codes);
+            state_.matches.decode(symbol, in, scratch_codes_);
         } else if (first) {
             const uint64_t code = state_.first_table.decode_extra(symbol - state_.match_zone, in);
             if (code > Params::kMaxLiteralCode) {
                 throw OperationError("literal decoder: corrupt stream (literal out of range)");
             }
-            codes.push_back(code);
+            scratch_codes_.push_back(code);
         } else {
             const uint64_t gap = state_.gap_table.decode_extra(symbol - state_.match_zone, in);
-            if (gap > Params::kMaxLiteralCode - codes.back()) {
+            if (gap > Params::kMaxLiteralCode - scratch_codes_.back()) {
                 throw OperationError("literal decoder: corrupt stream (literal out of range)");
             }
-            codes.push_back(codes.back() + gap);
+            scratch_codes_.push_back(scratch_codes_.back() + gap);
         }
-        if (codes.size() > Params::kMaxListLength) {
+        if (scratch_codes_.size() > Params::kMaxListLength) {
             throw OperationError("literal decoder: corrupt stream (clause too long)");
         }
     }
 
-    state_.matches.insert(codes);
+    state_.matches.insert(scratch_codes_);
 
-    std::vector<Literal> literals;
-    literals.reserve(codes.size());
-    for (const uint64_t code: codes) {
-        literals.push_back(Literal{static_cast<int32_t>(zigzag_decode(code))});
+    out.clear();
+    for (const uint64_t code: scratch_codes_) {
+        out.push_back(Literal{static_cast<int32_t>(zigzag_decode(code))});
     }
-    return literals;
 }

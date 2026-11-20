@@ -7,7 +7,7 @@
 MatchEncoder::MatchEncoder(const LZParams &params)
     : state_(params),
       window_(params.window),
-      max_search_depth_(params.window.max_search_depth) {
+      scratch_candidates_(params.window.max_search_depth) {
 }
 
 std::optional<LZWindow::Match> MatchEncoder::best(const std::span<const uint64_t> tokens,
@@ -16,8 +16,7 @@ std::optional<LZWindow::Match> MatchEncoder::best(const std::span<const uint64_t
     CHECK(single_prefix.size() == tokens.size() + 1);
     std::optional<LZWindow::Match> best;
     int64_t best_saving = 0;
-    std::vector<LZWindow::Match> candidates(max_search_depth_);
-    for (const LZWindow::Match &m: window_.find_matches(tokens, candidates)) {
+    for (const LZWindow::Match &m: window_.find_matches(tokens, scratch_candidates_)) {
         const auto singles = static_cast<int64_t>(single_prefix[m.length] - single_prefix[0]);
         const int64_t match = state_.length_table.cost(m.length, model)
                               + state_.distance_table.cost(m.distance, state_.distance_model);
