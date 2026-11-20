@@ -18,16 +18,6 @@ struct DeleteRecordParams {
     }
 };
 
-struct LiteralParams {
-    DistanceTable::Config first_table = {.exact_until = 3072, .groups_per_level = 64};
-    DistanceTable::Config gap_table = {.exact_until = 3072, .groups_per_level = 64};
-
-    void fields(this auto &self, auto &&f) {
-        f(self.first_table);
-        f(self.gap_table);
-    }
-};
-
 struct ImportRecordParams {
     DistanceTable::Config id_table = {.exact_until = 256, .groups_per_level = 32};
 
@@ -37,8 +27,10 @@ struct ImportRecordParams {
 };
 
 struct LZParams {
-    LZWindow::Config window = {.window_log = 15, .hash_bits = 16, .max_match = 1u << 16,
-                               .nice_match = 256, .max_search_depth = 128};
+    LZWindow::Config window = {
+        .window_log = 15, .hash_bits = 16, .max_match = 1u << 16,
+        .nice_match = 256, .max_search_depth = 128
+    };
     DistanceTable::Config length_table = {.exact_until = 64, .groups_per_level = 8};
     DistanceTable::Config distance_table = {.exact_until = 64, .groups_per_level = 16};
 
@@ -46,6 +38,19 @@ struct LZParams {
         f(self.window);
         f(self.length_table);
         f(self.distance_table);
+    }
+};
+
+struct LiteralParams {
+    DistanceTable::Config first_table = {.exact_until = 3072, .groups_per_level = 64};
+    DistanceTable::Config gap_table = {.exact_until = 3072, .groups_per_level = 64};
+
+    LZParams lz;
+
+    void fields(this auto &self, auto &&f) {
+        f(self.first_table);
+        f(self.gap_table);
+        f(self.lz);
     }
 };
 

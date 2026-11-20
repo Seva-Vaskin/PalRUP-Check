@@ -1,10 +1,13 @@
 #pragma once
 
+#include "MatchCoder.hpp"
 #include "Params.hpp"
 #include "types.hpp"
 
-template<typename VitterModel>
+template<typename VitterModel, typename MatchCoder>
 struct LiteralState {
+    MatchCoder matches;
+    uint32_t match_zone;
     uint64_t max_code;
 
     DistanceTable first_table;
@@ -16,14 +19,16 @@ struct LiteralState {
     VitterModel gap_model;
 
     LiteralState(const LiteralParams &params, const uint32_t variable_count)
-        : max_code(2 * uint64_t{variable_count}),
+        : matches(params.lz),
+          match_zone(matches.zone_size()),
+          max_code(2 * uint64_t{variable_count}),
 
           first_table(params.first_table, 1, max_code),
-          first_end(first_table.bucket_count()),
+          first_end(match_zone + first_table.bucket_count()),
           first_model(first_end + 1),
 
           gap_table(params.gap_table, 1, max_code - 1),
-          gap_end(gap_table.bucket_count()),
+          gap_end(match_zone + gap_table.bucket_count()),
           gap_model(gap_end + 1) {
     }
 };
@@ -35,7 +40,7 @@ public:
     void encode(std::span<const Literal> literals, BitWriter &out);
 
 private:
-    LiteralState<VitterEncoder> state_;
+    LiteralState<VitterEncoder, MatchEncoder> state_;
 };
 
 class LiteralDecoder {
@@ -45,5 +50,5 @@ public:
     [[nodiscard]] std::vector<Literal> decode(BitReader &in);
 
 private:
-    LiteralState<VitterDecoder> state_;
+    LiteralState<VitterDecoder, MatchDecoder> state_;
 };

@@ -79,6 +79,7 @@ void Params::validate() const {
     CHECK_TABLE(hints.rest_table);
     CHECK_TABLE(add_record.jump_table);
     CHECK_TABLE(hints.lz);
+    CHECK_TABLE(literals.lz);
 
 #undef CHECK_TABLE
 }
