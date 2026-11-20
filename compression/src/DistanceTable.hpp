@@ -43,6 +43,8 @@ public:
 
     void encode(uint64_t value, VitterEncoder& model, BitWriter &out, uint32_t offset = 0) const;
 
+    [[nodiscard]] uint32_t cost(uint64_t value, const VitterEncoder &model, uint32_t offset = 0) const noexcept;
+
     uint64_t decode(VitterDecoder& model, BitReader &in) const;
 
     uint64_t decode_extra(uint32_t bucket, BitReader &in) const;

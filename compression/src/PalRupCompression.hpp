@@ -24,7 +24,7 @@ public:
 
     PalRupCompressor(std::FILE *file, const CompressOptions &options);
 
-    ~PalRupCompressor();
+    ~PalRupCompressor() = default;
 
     PalRupCompressor(const PalRupCompressor &) = delete;
 

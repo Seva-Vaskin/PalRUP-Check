@@ -1,4 +1,4 @@
-#include "LZWindow.hpp"
+#include "LZ.hpp"
 
 #include <algorithm>
 
@@ -86,11 +86,24 @@ namespace {
     }
 }
 
+LZHistory::LZHistory(const uint8_t window_log)
+    : ring_(uint64_t{1} << window_log),
+      mask_((uint64_t{1} << window_log) - 1) {
+}
+
+void LZHistory::insert(const std::span<const uint64_t> tokens) noexcept {
+    for (const uint64_t token: tokens) {
+        ring_[total_ & mask_] = token;
+        ++total_;
+    }
+}
+
+
 uint32_t LZWindow::match_length(const uint64_t pos,
                                 const std::span<const uint64_t> tokens,
                                 const uint64_t length_limit) const {
     uint32_t length = 0;
-    while (length < length_limit && window_[(pos + length) & window_mask_] == tokens[length]) {
+    while (length < length_limit && history_.token(pos + length) == tokens[length]) {
         length++;
     }
     return length;
@@ -99,7 +112,7 @@ uint32_t LZWindow::match_length(const uint64_t pos,
 LZWindow::LZWindow(const Config &config) : config_(check_config(config)),
                                            window_mask_((1u << config.window_log) - 1u),
                                            hash_mask_((1u << config.hash_bits) - 1u),
-                                           window_(1u << config.window_log),
+                                           history_(config.window_log),
                                            head_(1u << config.hash_bits, NO_POSITION),
                                            prev_(1u << config.window_log) {
 }
@@ -109,7 +122,7 @@ std::span<LZWindow::Match> LZWindow::find_matches(std::span<const uint64_t> toke
         return output.first(0);
     }
 
-    const uint64_t window_size = window_.size();
+    const uint64_t window_size = history_.capacity();
     const uint64_t length_limit = std::min<uint64_t>(config_.max_match, tokens.size());
 
     uint32_t match_count = 0;
@@ -120,7 +133,7 @@ std::span<LZWindow::Match> LZWindow::find_matches(std::span<const uint64_t> toke
     for (uint32_t probe = 0; probe < config_.max_search_depth; probe++) {
         if (cur == NO_POSITION) break;
 
-        uint64_t distance = total_ - cur;
+        uint64_t distance = history_.total() - cur;
         if (distance > window_size) break;
 
         const uint32_t length = match_length(cur, tokens, std::min(distance, length_limit));
@@ -142,35 +155,21 @@ std::span<LZWindow::Match> LZWindow::find_matches(std::span<const uint64_t> toke
 }
 
 void LZWindow::insert(const std::span<const uint64_t> tokens) {
-    uint64_t p = total_ >= MIN_MATCH - 1 ? total_ - MIN_MATCH + 1 : 0;
-    for (const uint64_t token: tokens) {
-        window_[total_ & window_mask_] = token;
-        ++total_;
-    }
+    const uint64_t first_new = history_.total();
+    history_.insert(tokens);
+    const uint64_t start_pos = first_new >= MIN_MATCH - 1 ? first_new - (MIN_MATCH - 1) : 0;
+    update_hash(start_pos);
+}
 
-    for (; p + MIN_MATCH <= total_; p++) {
-        const auto h = hash2(window_[p & window_mask_], window_[(p + 1) & window_mask_]) & hash_mask_;
+void LZWindow::update_hash(uint64_t start_pos) {
+    const uint64_t total = history_.total();
+    const uint64_t oldest_kept = total - history_.size();
+
+    for (uint64_t p = std::max(start_pos, oldest_kept); p + MIN_MATCH <= total; p++) {
+        const auto h = hash2(history_.token(p), history_.token(p + 1)) & hash_mask_;
         prev_[p & window_mask_] = head_[h];
         head_[h] = p;
     }
-}
-
-void LZWindow::Config::fields(this auto &self, auto &&f) {
-    f(self.window_log);
-    f(self.hash_bits);
-    f(self.max_match);
-    f(self.nice_match);
-    f(self.max_search_depth);
-}
-
-constexpr bool LZWindow::Config::valid() const noexcept {
-    bool ok = true;
-    ok &= MIN_WINDOW_LOG <= window_log && window_log <= MAX_WINDOW_LOG;
-    ok &= MIN_HASH_BITS <= hash_bits && hash_bits <= MAX_HASH_BITS;
-    ok &= MIN_MATCH <= max_match && max_match <= MAX_MATCH;
-    ok &= MIN_MATCH <= nice_match && nice_match <= max_match;
-    ok &= max_search_depth >= 1;
-    return ok;
 }
 
 constexpr LZWindow::Config LZWindow::check_config(const Config &config) {

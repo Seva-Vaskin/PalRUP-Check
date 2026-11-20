@@ -17,8 +17,8 @@ add_library(palrup-compression STATIC
         src/BitWriter.hpp
         src/VitterCoder.cpp
         src/VitterCoder.hpp
-        src/LZWindow.cpp
-        src/LZWindow.hpp
+        src/LZ.cpp
+        src/LZ.hpp
         src/error.hpp
         src/utils.hpp
         src/PalRupReader.hpp
@@ -49,6 +49,9 @@ add_library(palrup-compression STATIC
         src/AddRecordCoder.cpp
         src/AddRecordCoder.hpp
         src/PalRupCompression.cpp
+        src/PalRupCompression.hpp
+        src/MatchCoder.cpp
+        src/MatchCoder.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)

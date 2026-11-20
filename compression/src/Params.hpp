@@ -6,6 +6,7 @@
 #include "ByteReader.hpp"
 #include "ByteWriter.hpp"
 #include "DistanceTable.hpp"
+#include "LZ.hpp"
 
 struct DeleteRecordParams {
     DistanceTable::Config gaps_table = {.exact_until = 256, .groups_per_level = 32};
@@ -35,13 +36,29 @@ struct ImportRecordParams {
     }
 };
 
+struct LZParams {
+    LZWindow::Config window = {.window_log = 15, .hash_bits = 16, .max_match = 1u << 16,
+                               .nice_match = 256, .max_search_depth = 128};
+    DistanceTable::Config length_table = {.exact_until = 64, .groups_per_level = 8};
+    DistanceTable::Config distance_table = {.exact_until = 64, .groups_per_level = 16};
+
+    void fields(this auto &self, auto &&f) {
+        f(self.window);
+        f(self.length_table);
+        f(self.distance_table);
+    }
+};
+
 struct HintParams {
     DistanceTable::Config first_table = {.exact_until = 256, .groups_per_level = 32};
     DistanceTable::Config rest_table = {.exact_until = 256, .groups_per_level = 32};
 
+    LZParams lz;
+
     void fields(this auto &self, auto &&f) {
         f(self.first_table);
         f(self.rest_table);
+        f(self.lz);
     }
 };
 

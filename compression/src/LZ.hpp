@@ -6,6 +6,30 @@
 #include <cstdint>
 #include <vector>
 
+
+class LZHistory {
+public:
+    explicit LZHistory(uint8_t window_log);
+
+    void insert(std::span<const uint64_t> tokens) noexcept;
+
+    [[nodiscard]] uint64_t total() const noexcept { return total_; }
+
+    [[nodiscard]] uint64_t capacity() const noexcept { return ring_.size(); }
+
+    [[nodiscard]] uint64_t token(uint64_t position) const noexcept { return ring_[position & mask_]; }
+
+
+    [[nodiscard]] uint64_t size() const noexcept { return std::min(total_, capacity()); }
+
+private:
+    std::vector<uint64_t> ring_;
+    uint64_t mask_;
+    uint64_t total_ = 0;
+};
+
+
+
 class LZWindow {
 public:
     static constexpr uint8_t MIN_WINDOW_LOG = 1;
@@ -26,9 +50,23 @@ public:
         uint32_t nice_match;
         uint32_t max_search_depth;
 
-        [[nodiscard]] constexpr bool valid() const noexcept;
+        [[nodiscard]] constexpr bool valid() const noexcept {
+            bool ok = true;
+            ok &= MIN_WINDOW_LOG <= window_log && window_log <= MAX_WINDOW_LOG;
+            ok &= MIN_HASH_BITS <= hash_bits && hash_bits <= MAX_HASH_BITS;
+            ok &= MIN_MATCH <= max_match && max_match <= MAX_MATCH;
+            ok &= MIN_MATCH <= nice_match && nice_match <= max_match;
+            ok &= max_search_depth >= 1;
+            return ok;
+        }
 
-        void fields(this auto &self, auto &&f);
+        void fields(this auto &self, auto &&f) {
+            f(self.window_log);
+            f(self.hash_bits);
+            f(self.max_match);
+            f(self.nice_match);
+            f(self.max_search_depth);
+        }
     };
 
     struct Match {
@@ -46,9 +84,8 @@ private:
     Config config_;
     uint32_t window_mask_;
     uint32_t hash_mask_;
-    uint64_t total_ = 0;
 
-    std::vector<uint64_t> window_;
+    LZHistory history_;
     std::vector<uint64_t> head_;
     std::vector<uint64_t> prev_;
 
@@ -56,4 +93,5 @@ private:
 
     [[nodiscard]] uint32_t match_length(uint64_t pos, std::span<const uint64_t> tokens, uint64_t length_limit) const;
 
+    void update_hash(uint64_t start_pos);
 };

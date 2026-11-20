@@ -52,6 +52,12 @@ namespace {
             invalid(field);
         }
     }
+
+    void check(const LZParams &lz, const char *field) {
+        if (!lz.window.valid() || !lz.length_table.valid() || !lz.distance_table.valid()) {
+            invalid(field);
+        }
+    }
 }
 
 void Params::validate() const {
@@ -72,6 +78,7 @@ void Params::validate() const {
     CHECK_TABLE(hints.first_table);
     CHECK_TABLE(hints.rest_table);
     CHECK_TABLE(add_record.jump_table);
+    CHECK_TABLE(hints.lz);
 
 #undef CHECK_TABLE
 }

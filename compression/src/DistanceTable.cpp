@@ -110,6 +110,18 @@ void DistanceTable::encode(uint64_t value, VitterEncoder &model, BitWriter &out,
     encode_extra(value, out);
 }
 
+uint32_t DistanceTable::cost(const uint64_t value, const VitterEncoder &model, const uint32_t offset) const noexcept {
+    const uint32_t bucket = bucket_of(value);
+    uint32_t extra;
+    if (bucket == escape_bucket()) [[unlikely]] {
+        const auto width = static_cast<uint32_t>(std::bit_width(value - max_value_ - 1));
+        extra = 7 + (width >= 2 ? width - 1 : 0);
+    } else {
+        extra = buckets_[bucket].extra_bits;
+    }
+    return model.code_length(offset + bucket) + extra;
+}
+
 uint64_t DistanceTable::decode(VitterDecoder &model, BitReader &in) const {
     const uint32_t bucket = model.decode(in);
     return decode_extra(bucket, in);

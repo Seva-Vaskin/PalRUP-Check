@@ -38,13 +38,6 @@ PalRupCompressor::PalRupCompressor(std::FILE *file, const CompressOptions &optio
     params_.write(bytes_);
 }
 
-PalRupCompressor::~PalRupCompressor() {
-    try {
-        close();
-    } catch (...) {
-    }
-}
-
 void PalRupCompressor::append_add(const uint64_t id, const std::span<const int32_t> literals,
                                   const std::span<const uint64_t> hints) {
     AddRecord record{.id = ClauseId{id}};
