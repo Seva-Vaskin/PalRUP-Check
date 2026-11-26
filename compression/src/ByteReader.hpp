@@ -26,7 +26,7 @@ public:
     [[nodiscard]] bool has_error() const noexcept;
 
 private:
-    static constexpr size_t kSize = 4096;
+    static constexpr size_t kSize = size_t{1} << 16;
 
     uint8_t buf_[kSize]{};
     std::FILE *file_;
