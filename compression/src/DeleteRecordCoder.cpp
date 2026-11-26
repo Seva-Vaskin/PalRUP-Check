@@ -5,7 +5,7 @@
 DeleteRecordEncoder::DeleteRecordEncoder(const Params &params) : state_(params.delete_record, params.thread_count) {
 }
 
-void DeleteRecordEncoder::encode(const DeleteRecord &record, BitWriter &out) {
+void DeleteRecordEncoder::encode(const DeleteRecord &record, ClauseIdCache &cache, BitWriter &out) {
     if (record.ids.size() > Params::kMaxListLength) {
         throw OperationError("delete encoder: Delete has more than kMaxListLength ids");
     }
@@ -52,12 +52,16 @@ void DeleteRecordEncoder::encode(const DeleteRecord &record, BitWriter &out) {
         }
     }
     state_.gaps_and_threads_model.encode(state_.end, out);
+
+    for (const ClauseId id: record.ids) {
+        cache.remove(id.value);
+    }
 }
 
 DeleteRecordDecoder::DeleteRecordDecoder(const Params &params) : state_(params.delete_record, params.thread_count) {
 }
 
-void DeleteRecordDecoder::decode(BitReader &in, DeleteRecord &out) {
+void DeleteRecordDecoder::decode(BitReader &in, ClauseIdCache &cache, DeleteRecord &out) {
     out.ids.clear();
     uint64_t prev_first = 0;
     uint64_t thread = 0;
@@ -69,6 +73,9 @@ void DeleteRecordDecoder::decode(BitReader &in, DeleteRecord &out) {
 
         if (symbol == state_.end) {
             // END
+            for (const ClauseId id: out.ids) {
+                cache.remove(id.value);
+            }
             return;
         }
         if (symbol < state_.thread_count) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AddRecordCoder.hpp"
+#include "ClauseIdCache.hpp"
 #include "DeleteRecordCoder.hpp"
 #include "ImportRecordCoder.hpp"
 #include "Params.hpp"
@@ -21,13 +22,16 @@ template<typename VitterModel, typename AddCoder, typename ImportCoder, typename
 struct RecordState {
     bool finished = false;
 
+    ClauseIdCache cache;
+
     VitterModel tag_model;
     AddCoder add_record;
     ImportCoder import_record;
     DeleteCoder delete_record;
 
     explicit RecordState(const Params &params)
-        : tag_model(Params::kRecordTagCount),
+        : cache(params.cache.cache_bits, params.clause_count),
+          tag_model(Params::kRecordTagCount),
           add_record(params),
           import_record(params),
           delete_record(params) {

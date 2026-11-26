@@ -3,6 +3,7 @@
 #include <string>
 #include <type_traits>
 
+#include "ClauseIdCache.hpp"
 #include "error.hpp"
 
 namespace {
@@ -67,9 +68,13 @@ void Params::validate() const {
     if (thread_count == 0 || thread_count > kMaxThreadCount) {
         invalid("thread_count");
     }
+    if (cache.cache_bits < ClauseIdCache::MIN_CACHE_BITS || cache.cache_bits > ClauseIdCache::MAX_CACHE_BITS) {
+        invalid("cache.cache_bits");
+    }
 
 #define CHECK_TABLE(field) check(field, #field)
 
+    CHECK_TABLE(cache.rank_table);
     CHECK_TABLE(delete_record.gaps_table);
     CHECK_TABLE(delete_record.first_table);
     CHECK_TABLE(literals.first_table);

@@ -1,5 +1,7 @@
 #include "HintCoder.hpp"
 
+#include <algorithm>
+
 #include "utils.hpp"
 
 namespace {
@@ -12,10 +14,11 @@ namespace {
     }
 }
 
-HintEncoder::HintEncoder(const HintParams &params) : state_(params) {
+HintEncoder::HintEncoder(const HintParams &params, const CacheParams &cache) : state_(params, cache) {
 }
 
-void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t id, BitWriter &out) {
+void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t id, ClauseIdCache &cache,
+                         BitWriter &out) {
     if (hints.size() > Params::kMaxListLength) {
         throw OperationError("hint encoder: Add has more than kMaxListLength hints");
     }
@@ -31,10 +34,14 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
         const DistanceTable &table = k == 0 ? state_.first_table : state_.rest_table;
         const VitterEncoder &model = k == 0 ? state_.first_model : state_.rest_model;
         const uint64_t base = k == 0 ? id : scratch_tokens_[k - 1];
-        const uint32_t cost = table.cost(delta(base, scratch_tokens_[k]), model, state_.match_zone);
+        uint32_t cost = table.cost(delta(base, scratch_tokens_[k]), model, state_.delta_zone);
+        if (const auto rank = cache.rank_of(scratch_tokens_[k])) {
+            cost = std::min(cost, state_.rank_table.cost(*rank, model, state_.match_zone));
+        }
         scratch_single_prefix_[k + 1] = scratch_single_prefix_[k] + cost;
     }
 
+    scratch_deferred_.clear();
     for (size_t i = 0; i < n;) {
         VitterEncoder &model = i == 0 ? state_.first_model : state_.rest_model;
         const auto remaining = std::span<const uint64_t>(scratch_tokens_).subspan(i);
@@ -43,12 +50,26 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
         if (const auto match = state_.matches.best(remaining, prefix, model)) {
             state_.matches.encode(*match, model, out);
             i += match->length;
-        } else {
-            const DistanceTable &table = i == 0 ? state_.first_table : state_.rest_table;
-            const uint64_t base = i == 0 ? id : scratch_tokens_[i - 1];
-            table.encode(delta(base, scratch_tokens_[i]), model, out, state_.match_zone);
-            ++i;
+            continue;
         }
+
+        const uint64_t hint = scratch_tokens_[i];
+        const DistanceTable &table = i == 0 ? state_.first_table : state_.rest_table;
+        const uint64_t code = delta(i == 0 ? id : scratch_tokens_[i - 1], hint);
+        const auto rank = cache.rank_of(hint);
+        if (rank && state_.rank_table.cost(*rank, model, state_.match_zone)
+            <= table.cost(code, model, state_.delta_zone)) {
+            state_.rank_table.encode(*rank, model, out, state_.match_zone);
+        } else {
+            table.encode(code, model, out, state_.delta_zone);
+        }
+
+        if (rank) {
+            cache.make_most_recent(hint);
+        } else {
+            scratch_deferred_.push_back(hint);
+        }
+        ++i;
     }
 
     if (n == 0) {
@@ -58,13 +79,17 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
     }
 
     state_.matches.insert(scratch_tokens_);
+    for (const uint64_t hint: scratch_deferred_) {
+        cache.insert(hint);
+    }
 }
 
-HintDecoder::HintDecoder(const HintParams &params) : state_(params) {
+HintDecoder::HintDecoder(const HintParams &params, const CacheParams &cache) : state_(params, cache) {
 }
 
-void HintDecoder::decode(const uint64_t id, BitReader &in, std::vector<ClauseId> &out) {
+void HintDecoder::decode(const uint64_t id, ClauseIdCache &cache, BitReader &in, std::vector<ClauseId> &out) {
     scratch_tokens_.clear();
+    scratch_deferred_.clear();
     for (;;) {
         const bool first = scratch_tokens_.empty();
         VitterDecoder &model = first ? state_.first_model : state_.rest_model;
@@ -76,10 +101,22 @@ void HintDecoder::decode(const uint64_t id, BitReader &in, std::vector<ClauseId>
         }
         if (symbol < state_.match_zone) {
             state_.matches.decode(symbol, in, scratch_tokens_);
+        } else if (symbol < state_.delta_zone) {
+            const uint64_t rank = state_.rank_table.decode_extra(symbol - state_.match_zone, in);
+            if (rank >= cache.size()) {
+                throw OperationError("hint decoder: corrupt stream (cache rank out of range)");
+            }
+            const uint64_t hint = cache.id_at_rank(static_cast<uint32_t>(rank));
+            cache.make_most_recent(hint);
+            scratch_tokens_.push_back(hint);
         } else {
             const DistanceTable &table = first ? state_.first_table : state_.rest_table;
             const uint64_t base = first ? id : scratch_tokens_.back();
-            scratch_tokens_.push_back(undelta(base, table.decode_extra(symbol - state_.match_zone, in)));
+            const uint64_t hint = undelta(base, table.decode_extra(symbol - state_.delta_zone, in));
+            if (!cache.make_most_recent_if_cached(hint)) {
+                scratch_deferred_.push_back(hint);
+            }
+            scratch_tokens_.push_back(hint);
         }
         if (scratch_tokens_.size() > Params::kMaxListLength) {
             throw OperationError("hint decoder: corrupt stream (too many hints)");
@@ -87,6 +124,9 @@ void HintDecoder::decode(const uint64_t id, BitReader &in, std::vector<ClauseId>
     }
 
     state_.matches.insert(scratch_tokens_);
+    for (const uint64_t hint: scratch_deferred_) {
+        cache.insert(hint);
+    }
 
     out.clear();
     for (const uint64_t token: scratch_tokens_) {

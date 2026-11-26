@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ClauseIdCache.hpp"
 #include "LiteralCoder.hpp"
 #include "Params.hpp"
 #include "types.hpp"
@@ -24,7 +25,7 @@ class ImportRecordEncoder {
 public:
     explicit ImportRecordEncoder(const Params& params);;
 
-    void encode(const ImportRecord &record, BitWriter &out);
+    void encode(const ImportRecord &record, ClauseIdCache &cache, BitWriter &out);
 
 private:
     ImportState<VitterEncoder, LiteralEncoder> state_;
@@ -34,7 +35,7 @@ class ImportRecordDecoder {
 public:
     explicit ImportRecordDecoder(const Params& params);
 
-    void decode(BitReader &in, ImportRecord &out);
+    void decode(BitReader &in, ClauseIdCache &cache, ImportRecord &out);
 
 private:
     ImportState<VitterDecoder, LiteralDecoder> state_;

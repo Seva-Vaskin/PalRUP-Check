@@ -15,10 +15,11 @@ void AddRecordEncoder::encode_update(const ClauseId id, BitWriter &out) {
     state_.next_id = id.value;
 }
 
-void AddRecordEncoder::encode(const AddRecord &record, BitWriter &out) {
+void AddRecordEncoder::encode(const AddRecord &record, ClauseIdCache &cache, BitWriter &out) {
     CHECK(!needs_update(record.id));
     state_.literals.encode(record.literals, out);
-    state_.hints.encode(record.hints, record.id.value, out);
+    state_.hints.encode(record.hints, record.id.value, cache, out);
+    cache.insert(record.id.value);
     state_.next_id = record.id.value + state_.thread_count;
 }
 
@@ -30,9 +31,10 @@ void AddRecordDecoder::decode_update(BitReader &in) {
     state_.next_id += static_cast<uint64_t>(zigzag_decode(jump));
 }
 
-void AddRecordDecoder::decode(BitReader &in, AddRecord &out) {
+void AddRecordDecoder::decode(BitReader &in, ClauseIdCache &cache, AddRecord &out) {
     out.id = ClauseId{state_.next_id};
     state_.literals.decode(in, out.literals);
-    state_.hints.decode(out.id.value, in, out.hints);
+    state_.hints.decode(out.id.value, cache, in, out.hints);
+    cache.insert(out.id.value);
     state_.next_id = out.id.value + state_.thread_count;
 }

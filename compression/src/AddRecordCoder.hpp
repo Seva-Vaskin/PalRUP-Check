@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ClauseIdCache.hpp"
 #include "HintCoder.hpp"
 #include "LiteralCoder.hpp"
 #include "Params.hpp"
@@ -21,7 +22,7 @@ struct AddState {
           jump_table(params.add_record.jump_table, 0, Params::kMaxIdDelta),
           jump_model(jump_table.bucket_count()),
           literals(params.literals, params.variable_count),
-          hints(params.hints) {
+          hints(params.hints, params.cache) {
     }
 };
 
@@ -33,7 +34,7 @@ public:
 
     void encode_update(ClauseId id, BitWriter &out);
 
-    void encode(const AddRecord &record, BitWriter &out);
+    void encode(const AddRecord &record, ClauseIdCache &cache, BitWriter &out);
 
 private:
     AddState<VitterEncoder, LiteralEncoder, HintEncoder> state_;
@@ -45,7 +46,7 @@ public:
 
     void decode_update(BitReader &in);
 
-    void decode(BitReader &in, AddRecord &out);
+    void decode(BitReader &in, ClauseIdCache &cache, AddRecord &out);
 
 private:
     AddState<VitterDecoder, LiteralDecoder, HintDecoder> state_;

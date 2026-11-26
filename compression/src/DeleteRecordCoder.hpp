@@ -1,4 +1,5 @@
 #pragma once
+#include "ClauseIdCache.hpp"
 #include "Params.hpp"
 #include "types.hpp"
 
@@ -31,7 +32,7 @@ class DeleteRecordEncoder {
 public:
     explicit DeleteRecordEncoder(const Params &params);
 
-    void encode(const DeleteRecord &record, BitWriter &out);
+    void encode(const DeleteRecord &record, ClauseIdCache &cache, BitWriter &out);
 
 private:
     struct Entry {
@@ -54,7 +55,7 @@ class DeleteRecordDecoder {
 public:
     explicit DeleteRecordDecoder(const Params &params);
 
-    void decode(BitReader &in, DeleteRecord &out);
+    void decode(BitReader &in, ClauseIdCache &cache, DeleteRecord &out);
 
 private:
     DeleteState<VitterDecoder> state_;

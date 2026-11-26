@@ -67,6 +67,16 @@ struct HintParams {
     }
 };
 
+struct CacheParams {
+    uint8_t cache_bits = 16;
+    DistanceTable::Config rank_table = {.exact_until = 256, .groups_per_level = 32};
+
+    void fields(this auto &self, auto &&f) {
+        f(self.cache_bits);
+        f(self.rank_table);
+    }
+};
+
 struct AddRecordParams {
     DistanceTable::Config jump_table = {.exact_until = 256, .groups_per_level = 32};
 
@@ -89,6 +99,7 @@ struct Params {
     uint64_t clause_count = 0;
     uint32_t thread_count = 1;
 
+    CacheParams cache;
     DeleteRecordParams delete_record;
     LiteralParams literals;
     ImportRecordParams import_record;
@@ -106,6 +117,7 @@ struct Params {
         f(self.clause_count);
         f(self.thread_count);
 
+        f(self.cache);
         f(self.delete_record);
         f(self.literals);
         f(self.import_record);
