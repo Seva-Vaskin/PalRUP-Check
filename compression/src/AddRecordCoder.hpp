@@ -1,9 +1,9 @@
 #pragma once
 
-#include "ClauseIdCache.hpp"
 #include "HintCoder.hpp"
 #include "LiteralCoder.hpp"
 #include "Params.hpp"
+#include "RecencyCache.hpp"
 #include "types.hpp"
 
 template<typename VitterModel, typename LiteralCoder, typename HintCoder>
@@ -34,7 +34,7 @@ public:
 
     void encode_update(ClauseId id, BitWriter &out);
 
-    void encode(const AddRecord &record, ClauseIdCache &cache, BitWriter &out);
+    void encode(const AddRecord &record, RecencyCache &cache, BitWriter &out);
 
 private:
     AddState<VitterEncoder, LiteralEncoder, HintEncoder> state_;
@@ -46,7 +46,7 @@ public:
 
     void decode_update(BitReader &in);
 
-    void decode(BitReader &in, ClauseIdCache &cache, AddRecord &out);
+    void decode(BitReader &in, RecencyCache &cache, AddRecord &out);
 
 private:
     AddState<VitterDecoder, LiteralDecoder, HintDecoder> state_;

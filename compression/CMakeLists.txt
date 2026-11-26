@@ -57,8 +57,8 @@ add_library(palrup-compression STATIC
         src/PalRupCompression.hpp
         src/MatchCoder.cpp
         src/MatchCoder.hpp
-        src/ClauseIdCache.cpp
-        src/ClauseIdCache.hpp
+        src/RecencyCache.cpp
+        src/RecencyCache.hpp
 )
 
 add_library(palrup::compression ALIAS palrup-compression)

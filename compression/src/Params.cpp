@@ -3,8 +3,8 @@
 #include <string>
 #include <type_traits>
 
-#include "ClauseIdCache.hpp"
 #include "error.hpp"
+#include "RecencyCache.hpp"
 
 namespace {
     [[noreturn]] void invalid(const char *field) {
@@ -68,7 +68,7 @@ void Params::validate() const {
     if (thread_count == 0 || thread_count > kMaxThreadCount) {
         invalid("thread_count");
     }
-    if (cache.cache_bits < ClauseIdCache::MIN_CACHE_BITS || cache.cache_bits > ClauseIdCache::MAX_CACHE_BITS) {
+    if (cache.cache_bits < RecencyCache::MIN_CACHE_BITS || cache.cache_bits > RecencyCache::MAX_CACHE_BITS) {
         invalid("cache.cache_bits");
     }
 

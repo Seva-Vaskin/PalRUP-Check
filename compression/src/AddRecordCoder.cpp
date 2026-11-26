@@ -15,7 +15,7 @@ void AddRecordEncoder::encode_update(const ClauseId id, BitWriter &out) {
     state_.next_id = id.value;
 }
 
-void AddRecordEncoder::encode(const AddRecord &record, ClauseIdCache &cache, BitWriter &out) {
+void AddRecordEncoder::encode(const AddRecord &record, RecencyCache &cache, BitWriter &out) {
     CHECK(!needs_update(record.id));
     state_.literals.encode(record.literals, out);
     state_.hints.encode(record.hints, record.id.value, cache, out);
@@ -31,7 +31,7 @@ void AddRecordDecoder::decode_update(BitReader &in) {
     state_.next_id += static_cast<uint64_t>(zigzag_decode(jump));
 }
 
-void AddRecordDecoder::decode(BitReader &in, ClauseIdCache &cache, AddRecord &out) {
+void AddRecordDecoder::decode(BitReader &in, RecencyCache &cache, AddRecord &out) {
     out.id = ClauseId{state_.next_id};
     state_.literals.decode(in, out.literals);
     state_.hints.decode(out.id.value, cache, in, out.hints);

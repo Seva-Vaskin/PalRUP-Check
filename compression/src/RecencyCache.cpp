@@ -1,4 +1,4 @@
-#include "ClauseIdCache.hpp"
+#include "RecencyCache.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -172,47 +172,47 @@ void RecencyRanking::renumber_stamps() {
     oldest_stamp_ = 1;
 }
 
-IdSlotMap::IdSlotMap(const uint32_t capacity)
+KeySlotMap::KeySlotMap(const uint32_t capacity)
     : entries_(std::bit_ceil(kSizePerCapacity * std::max<uint32_t>(capacity, 1))),
       mask_(entries_.size() - 1),
       shift_(64 - static_cast<uint32_t>(std::countr_zero(entries_.size()))) {
 }
 
-uint64_t IdSlotMap::home_of(const uint64_t id) const noexcept {
-    return (id * 0x9E3779B97F4A7C15ull) >> shift_;
+uint64_t KeySlotMap::home_of(const uint64_t key) const noexcept {
+    return (key * 0x9E3779B97F4A7C15ull) >> shift_;
 }
 
-uint64_t IdSlotMap::next(uint64_t position) const noexcept { return (position + 1) & mask_; }
+uint64_t KeySlotMap::next(uint64_t position) const noexcept { return (position + 1) & mask_; }
 
-uint64_t IdSlotMap::distance(uint64_t from, uint64_t to) const noexcept { return (to - from) & mask_; }
+uint64_t KeySlotMap::distance(uint64_t from, uint64_t to) const noexcept { return (to - from) & mask_; }
 
-uint64_t IdSlotMap::probe(const uint64_t id) const {
-    uint64_t position = home_of(id);
-    while (entries_[position].slot != kEmpty && entries_[position].id != id) {
+uint64_t KeySlotMap::probe(const uint64_t key) const {
+    uint64_t position = home_of(key);
+    while (entries_[position].slot != kEmpty && entries_[position].key != key) {
         position = next(position);
     }
     return position;
 }
 
-std::optional<uint32_t> IdSlotMap::find(const uint64_t id) const {
-    const Entry &entry = entries_[probe(id)];
+std::optional<uint32_t> KeySlotMap::find(const uint64_t key) const {
+    const Entry &entry = entries_[probe(key)];
     if (entry.slot == kEmpty) {
         return std::nullopt;
     }
     return entry.slot;
 }
 
-void IdSlotMap::insert(const uint64_t id, const uint32_t slot) {
-    const uint64_t position = probe(id);
+void KeySlotMap::insert(const uint64_t key, const uint32_t slot) {
+    const uint64_t position = probe(key);
     CHECK(entries_[position].slot == kEmpty);
-    entries_[position] = Entry{.id = id, .slot = slot};
+    entries_[position] = Entry{.key = key, .slot = slot};
 }
 
-void IdSlotMap::erase(const uint64_t id) {
-    uint64_t hole = probe(id);
+void KeySlotMap::erase(const uint64_t key) {
+    uint64_t hole = probe(key);
     CHECK(entries_[hole].slot != kEmpty);
     for (uint64_t position = next(hole); entries_[position].slot != kEmpty; position = next(position)) {
-        const uint64_t home = home_of(entries_[position].id);
+        const uint64_t home = home_of(entries_[position].key);
         if (distance(home, position) >= distance(hole, position)) {
             entries_[hole] = entries_[position];
             hole = position;
@@ -221,59 +221,50 @@ void IdSlotMap::erase(const uint64_t id) {
     entries_[hole].slot = kEmpty;
 }
 
-uint32_t ClauseIdCache::capacity_for(const uint8_t cache_bits) {
+uint32_t RecencyCache::capacity_for(const uint8_t cache_bits) {
     CHECK(MIN_CACHE_BITS <= cache_bits && cache_bits <= MAX_CACHE_BITS);
     return uint32_t{1} << cache_bits;
 }
 
-ClauseIdCache::ClauseIdCache(const uint8_t cache_bits, const uint64_t clause_count)
+RecencyCache::RecencyCache(const uint8_t cache_bits)
     : capacity_(capacity_for(cache_bits)),
       ranking_(capacity_),
-      id_of_slot_(capacity_, 0),
-      slot_of_id_(capacity_) {
+      key_of_slot_(capacity_, 0),
+      slot_of_key_(capacity_) {
     free_slots_.reserve(capacity_);
     for (uint32_t slot = capacity_; slot-- > 0;) {
         free_slots_.push_back(slot);
     }
-    prefill_with_formula_ids(clause_count);
 }
 
-void ClauseIdCache::prefill_with_formula_ids(const uint64_t clause_count) {
-    const uint64_t count = std::min<uint64_t>(clause_count, capacity_);
-    const uint64_t first = clause_count - count + 1;
-    for (uint64_t k = 0; k < count; ++k) {
-        insert(first + k);
-    }
+bool RecencyCache::contains(const uint64_t key) const {
+    return slot_of_key_.find(key).has_value();
 }
 
-bool ClauseIdCache::contains(const uint64_t id) const {
-    return slot_of_id_.find(id).has_value();
-}
-
-std::optional<uint32_t> ClauseIdCache::rank_of(const uint64_t id) const {
-    const auto slot = slot_of_id_.find(id);
+std::optional<uint32_t> RecencyCache::rank_of(const uint64_t key) const {
+    const auto slot = slot_of_key_.find(key);
     if (!slot) {
         return std::nullopt;
     }
     return ranking_.rank_of(*slot);
 }
 
-uint32_t ClauseIdCache::make_most_recent(const uint64_t id) {
-    const auto slot = slot_of_id_.find(id);
+uint32_t RecencyCache::make_most_recent(const uint64_t key) {
+    const auto slot = slot_of_key_.find(key);
     CHECK(slot.has_value());
     const uint32_t rank = ranking_.rank_of(*slot);
     ranking_.make_most_recent(*slot);
     return rank;
 }
 
-uint64_t ClauseIdCache::make_most_recent_at_rank(const uint32_t rank) {
+uint64_t RecencyCache::make_most_recent_at_rank(const uint32_t rank) {
     const uint32_t slot = ranking_.slot_at_rank(rank);
     ranking_.make_most_recent(slot);
-    return id_of_slot_[slot];
+    return key_of_slot_[slot];
 }
 
-bool ClauseIdCache::make_most_recent_if_cached(const uint64_t id) {
-    const auto slot = slot_of_id_.find(id);
+bool RecencyCache::make_most_recent_if_cached(const uint64_t key) {
+    const auto slot = slot_of_key_.find(key);
     if (!slot) {
         return false;
     }
@@ -281,8 +272,8 @@ bool ClauseIdCache::make_most_recent_if_cached(const uint64_t id) {
     return true;
 }
 
-void ClauseIdCache::insert(const uint64_t id) {
-    if (contains(id)) {
+void RecencyCache::insert(const uint64_t key) {
+    if (contains(key)) {
         return;
     }
     if (free_slots_.empty()) {
@@ -290,24 +281,24 @@ void ClauseIdCache::insert(const uint64_t id) {
     }
     const uint32_t slot = free_slots_.back();
     free_slots_.pop_back();
-    id_of_slot_[slot] = id;
-    slot_of_id_.insert(id, slot);
+    key_of_slot_[slot] = key;
+    slot_of_key_.insert(key, slot);
     ranking_.make_most_recent(slot);
 }
 
-void ClauseIdCache::remove(const uint64_t id) {
-    const auto slot = slot_of_id_.find(id);
+void RecencyCache::remove(const uint64_t key) {
+    const auto slot = slot_of_key_.find(key);
     if (!slot) {
         return;
     }
     ranking_.remove(*slot);
     free_slots_.push_back(*slot);
-    slot_of_id_.erase(id);
+    slot_of_key_.erase(key);
 }
 
-void ClauseIdCache::evict_least_recent() {
+void RecencyCache::evict_least_recent() {
     const uint32_t slot = ranking_.least_recent_slot();
-    slot_of_id_.erase(id_of_slot_[slot]);
+    slot_of_key_.erase(key_of_slot_[slot]);
     ranking_.remove(slot);
     free_slots_.push_back(slot);
 }

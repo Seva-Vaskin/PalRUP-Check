@@ -1,8 +1,8 @@
 #pragma once
 
-#include "ClauseIdCache.hpp"
 #include "LiteralCoder.hpp"
 #include "Params.hpp"
+#include "RecencyCache.hpp"
 #include "types.hpp"
 
 template<typename VitterModel, typename LiteralCoder>
@@ -25,7 +25,7 @@ class ImportRecordEncoder {
 public:
     explicit ImportRecordEncoder(const Params& params);;
 
-    void encode(const ImportRecord &record, ClauseIdCache &cache, BitWriter &out);
+    void encode(const ImportRecord &record, RecencyCache &cache, BitWriter &out);
 
 private:
     ImportState<VitterEncoder, LiteralEncoder> state_;
@@ -35,7 +35,7 @@ class ImportRecordDecoder {
 public:
     explicit ImportRecordDecoder(const Params& params);
 
-    void decode(BitReader &in, ClauseIdCache &cache, ImportRecord &out);
+    void decode(BitReader &in, RecencyCache &cache, ImportRecord &out);
 
 private:
     ImportState<VitterDecoder, LiteralDecoder> state_;

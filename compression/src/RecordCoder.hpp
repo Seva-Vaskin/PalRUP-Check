@@ -1,10 +1,10 @@
 #pragma once
 
 #include "AddRecordCoder.hpp"
-#include "ClauseIdCache.hpp"
 #include "DeleteRecordCoder.hpp"
 #include "ImportRecordCoder.hpp"
 #include "Params.hpp"
+#include "RecencyCache.hpp"
 #include "types.hpp"
 #include "VitterCoder.hpp"
 
@@ -18,11 +18,13 @@ enum class RecordTag : uint32_t {
 
 static_assert(static_cast<uint32_t>(RecordTag::Eof) + 1 == Params::kRecordTagCount);
 
+void prefill_with_formula_ids(RecencyCache &cache, uint64_t clause_count);
+
 template<typename VitterModel, typename AddCoder, typename ImportCoder, typename DeleteCoder>
 struct RecordState {
     bool finished = false;
 
-    ClauseIdCache cache;
+    RecencyCache clause_id_cache;
 
     VitterModel tag_model;
     AddCoder add_record;
@@ -30,11 +32,12 @@ struct RecordState {
     DeleteCoder delete_record;
 
     explicit RecordState(const Params &params)
-        : cache(params.cache.cache_bits, params.clause_count),
+        : clause_id_cache(params.cache.cache_bits),
           tag_model(Params::kRecordTagCount),
           add_record(params),
           import_record(params),
           delete_record(params) {
+        prefill_with_formula_ids(clause_id_cache, params.clause_count);
     }
 };
 

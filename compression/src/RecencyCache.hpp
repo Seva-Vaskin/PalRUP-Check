@@ -77,22 +77,22 @@ private:
     void renumber_stamps();
 };
 
-class IdSlotMap {
+class KeySlotMap {
 public:
-    explicit IdSlotMap(uint32_t capacity);
+    explicit KeySlotMap(uint32_t capacity);
 
-    [[nodiscard]] std::optional<uint32_t> find(uint64_t id) const;
+    [[nodiscard]] std::optional<uint32_t> find(uint64_t key) const;
 
-    void insert(uint64_t id, uint32_t slot);
+    void insert(uint64_t key, uint32_t slot);
 
-    void erase(uint64_t id);
+    void erase(uint64_t key);
 
 private:
     static constexpr uint32_t kEmpty = UINT32_MAX;
     static constexpr uint64_t kSizePerCapacity = 4;
 
     struct Entry {
-        uint64_t id = 0;
+        uint64_t key = 0;
         uint32_t slot = kEmpty;
     };
 
@@ -100,48 +100,48 @@ private:
     uint64_t mask_;
     uint32_t shift_;
 
-    [[nodiscard]] uint64_t home_of(uint64_t id) const noexcept;
+    [[nodiscard]] uint64_t home_of(uint64_t key) const noexcept;
 
     [[nodiscard]] uint64_t next(uint64_t position) const noexcept;
 
     [[nodiscard]] uint64_t distance(uint64_t from, uint64_t to) const noexcept;
 
-    [[nodiscard]] uint64_t probe(uint64_t id) const;
+    [[nodiscard]] uint64_t probe(uint64_t key) const;
 };
 
-class ClauseIdCache {
+class RecencyCache {
 public:
     static constexpr uint8_t MIN_CACHE_BITS = 1;
     static constexpr uint8_t MAX_CACHE_BITS = 24;
 
-    ClauseIdCache(uint8_t cache_bits, uint64_t clause_count);
+    explicit RecencyCache(uint8_t cache_bits);
 
-    [[nodiscard]] bool contains(uint64_t id) const;
+    [[nodiscard]] bool contains(uint64_t key) const;
 
-    [[nodiscard]] std::optional<uint32_t> rank_of(uint64_t id) const;
+    [[nodiscard]] std::optional<uint32_t> rank_of(uint64_t key) const;
 
-    [[nodiscard]] uint32_t make_most_recent(uint64_t id);
+    [[nodiscard]] uint32_t make_most_recent(uint64_t key);
 
     [[nodiscard]] uint64_t make_most_recent_at_rank(uint32_t rank);
 
-    [[nodiscard]] bool make_most_recent_if_cached(uint64_t id);
+    [[nodiscard]] bool make_most_recent_if_cached(uint64_t key);
 
-    void insert(uint64_t id);
+    void insert(uint64_t key);
 
-    void remove(uint64_t id);
+    void remove(uint64_t key);
 
     [[nodiscard]] uint32_t size() const noexcept { return ranking_.size(); }
+
+    [[nodiscard]] uint32_t capacity() const noexcept { return capacity_; }
 
 private:
     uint32_t capacity_;
     RecencyRanking ranking_;
-    std::vector<uint64_t> id_of_slot_;
-    IdSlotMap slot_of_id_;
+    std::vector<uint64_t> key_of_slot_;
+    KeySlotMap slot_of_key_;
     std::vector<uint32_t> free_slots_;
 
     [[nodiscard]] static uint32_t capacity_for(uint8_t cache_bits);
-
-    void prefill_with_formula_ids(uint64_t clause_count);
 
     void evict_least_recent();
 };

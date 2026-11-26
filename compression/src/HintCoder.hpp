@@ -5,7 +5,7 @@
 
 #include "MatchCoder.hpp"
 #include "Params.hpp"
-#include "ClauseIdCache.hpp"
+#include "RecencyCache.hpp"
 #include "types.hpp"
 
 // Hints of one Add, order kept:
@@ -53,7 +53,7 @@ class HintEncoder {
 public:
     HintEncoder(const HintParams &params, const CacheParams &cache);
 
-    void encode(std::span<const ClauseId> hints, uint64_t id, ClauseIdCache &cache, BitWriter &out);
+    void encode(std::span<const ClauseId> hints, uint64_t id, RecencyCache &cache, BitWriter &out);
 
 private:
     HintState<VitterEncoder, MatchEncoder> state_;
@@ -67,7 +67,7 @@ class HintDecoder {
 public:
     HintDecoder(const HintParams &params, const CacheParams &cache);
 
-    void decode(uint64_t id, ClauseIdCache &cache, BitReader &in, std::vector<ClauseId> &out);
+    void decode(uint64_t id, RecencyCache &cache, BitReader &in, std::vector<ClauseId> &out);
 
 private:
     HintState<VitterDecoder, MatchDecoder> state_;

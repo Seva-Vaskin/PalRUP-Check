@@ -15,7 +15,7 @@ namespace {
 HintEncoder::HintEncoder(const HintParams &params, const CacheParams &cache) : state_(params, cache) {
 }
 
-void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t id, ClauseIdCache &cache,
+void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t id, RecencyCache &cache,
                          BitWriter &out) {
     if (hints.size() > Params::kMaxListLength) {
         throw OperationError("hint encoder: Add has more than kMaxListLength hints");
@@ -90,7 +90,7 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
 HintDecoder::HintDecoder(const HintParams &params, const CacheParams &cache) : state_(params, cache) {
 }
 
-void HintDecoder::decode(const uint64_t id, ClauseIdCache &cache, BitReader &in, std::vector<ClauseId> &out) {
+void HintDecoder::decode(const uint64_t id, RecencyCache &cache, BitReader &in, std::vector<ClauseId> &out) {
     scratch_tokens_.clear();
     scratch_deferred_.clear();
     for (;;) {
