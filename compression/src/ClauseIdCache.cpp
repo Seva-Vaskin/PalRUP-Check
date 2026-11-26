@@ -47,10 +47,63 @@ uint32_t FenwickTree::first_position_with_prefix_sum(const uint32_t sum) const {
     return position + 1;
 }
 
+CountingBitset::CountingBitset(const uint32_t limit)
+    : words_(limit / kWordBits + 1, 0),
+      word_counts_(static_cast<uint32_t>(words_.size())) {
+}
+
+void CountingBitset::insert(const uint32_t x) {
+    uint64_t &word = words_[x / kWordBits];
+    const uint64_t bit = uint64_t{1} << (x % kWordBits);
+    CHECK((word & bit) == 0);
+    word |= bit;
+    word_counts_.add(x / kWordBits + 1, +1);
+}
+
+void CountingBitset::erase(const uint32_t x) {
+    uint64_t &word = words_[x / kWordBits];
+    const uint64_t bit = uint64_t{1} << (x % kWordBits);
+    CHECK((word & bit) != 0);
+    word &= ~bit;
+    word_counts_.add(x / kWordBits + 1, -1);
+}
+
+void CountingBitset::assign_interval(const uint32_t first, const uint32_t last) {
+    std::ranges::fill(words_, 0);
+    for (uint32_t x = first; x <= last; ++x) {
+        words_[x / kWordBits] |= uint64_t{1} << (x % kWordBits);
+    }
+    word_counts_.clear();
+    for (uint32_t w = 0; w < words_.size(); ++w) {
+        word_counts_.add(w + 1, std::popcount(words_[w]));
+    }
+}
+
+bool CountingBitset::contains(const uint32_t x) const {
+    return ((words_[x / kWordBits] >> (x % kWordBits)) & 1) != 0;
+}
+
+uint32_t CountingBitset::count_up_to(const uint32_t x) const {
+    const uint32_t w = x / kWordBits;
+    const uint64_t members_up_to_x = words_[w] & (~uint64_t{0} >> (kWordBits - 1 - x % kWordBits));
+    return word_counts_.prefix_sum(w) + static_cast<uint32_t>(std::popcount(members_up_to_x));
+}
+
+uint32_t CountingBitset::nth(const uint32_t n) const {
+    CHECK(n >= 1);
+    const uint32_t w = word_counts_.first_position_with_prefix_sum(n) - 1;
+    CHECK(w < words_.size());
+    uint64_t word = words_[w];
+    for (uint32_t below = n - word_counts_.prefix_sum(w); below > 1; --below) {
+        word &= word - 1;
+    }
+    return w * kWordBits + static_cast<uint32_t>(std::countr_zero(word));
+}
+
 RecencyRanking::RecencyRanking(const uint32_t slot_count)
     : stamp_limit_(2 * std::max<uint32_t>(slot_count, 1)),
       stamp_of_slot_(slot_count, kNoStamp),
-      slot_of_stamp_(stamp_limit_ + 1, kNoSlot),
+      slot_of_stamp_(stamp_limit_ + 1, 0),
       used_stamps_(stamp_limit_) {
 }
 
@@ -69,17 +122,17 @@ void RecencyRanking::remove(const uint32_t slot) {
 uint32_t RecencyRanking::rank_of(const uint32_t slot) const {
     const uint32_t stamp = stamp_of_slot_[slot];
     CHECK(stamp != kNoStamp);
-    return size_ - used_stamps_.prefix_sum(stamp);
+    return size_ - used_stamps_.count_up_to(stamp);
 }
 
 uint32_t RecencyRanking::slot_at_rank(const uint32_t rank) const {
     CHECK(rank < size_);
-    return slot_of_stamp_[used_stamps_.first_position_with_prefix_sum(size_ - rank)];
+    return slot_of_stamp_[used_stamps_.nth(size_ - rank)];
 }
 
 uint32_t RecencyRanking::least_recent_slot() {
     CHECK(size_ > 0);
-    while (slot_of_stamp_[oldest_stamp_] == kNoSlot) {
+    while (!used_stamps_.contains(oldest_stamp_)) {
         ++oldest_stamp_;
     }
     return slot_of_stamp_[oldest_stamp_];
@@ -89,7 +142,7 @@ void RecencyRanking::give_new_stamp(const uint32_t slot) {
     const uint32_t stamp = next_stamp_++;
     stamp_of_slot_[slot] = stamp;
     slot_of_stamp_[stamp] = slot;
-    used_stamps_.add(stamp, +1);
+    used_stamps_.insert(stamp);
     ++size_;
 }
 
@@ -98,28 +151,25 @@ void RecencyRanking::drop_stamp(const uint32_t slot) {
     if (stamp == kNoStamp) {
         return;
     }
-    used_stamps_.add(stamp, -1);
-    slot_of_stamp_[stamp] = kNoSlot;
+    used_stamps_.erase(stamp);
     stamp_of_slot_[slot] = kNoStamp;
     --size_;
 }
 
 void RecencyRanking::renumber_stamps() {
-    std::vector<uint32_t> slots_oldest_first;
-    slots_oldest_first.reserve(size_);
-    for (uint32_t stamp = 1; stamp <= stamp_limit_; ++stamp) {
-        if (slot_of_stamp_[stamp] != kNoSlot) {
-            slots_oldest_first.push_back(slot_of_stamp_[stamp]);
+    uint32_t renumbered = 0;
+    for (uint32_t stamp = oldest_stamp_; stamp < next_stamp_; ++stamp) {
+        if (used_stamps_.contains(stamp)) {
+            const uint32_t slot = slot_of_stamp_[stamp];
+            ++renumbered;
+            slot_of_stamp_[renumbered] = slot;
+            stamp_of_slot_[slot] = renumbered;
         }
     }
-    std::ranges::fill(slot_of_stamp_, kNoSlot);
-    used_stamps_.clear();
-    next_stamp_ = 1;
+    CHECK(renumbered == size_);
+    used_stamps_.assign_interval(1, size_);
+    next_stamp_ = size_ + 1;
     oldest_stamp_ = 1;
-    size_ = 0;
-    for (const uint32_t slot: slots_oldest_first) {
-        give_new_stamp(slot);
-    }
 }
 
 IdSlotMap::IdSlotMap(const uint32_t capacity)
@@ -208,14 +258,18 @@ std::optional<uint32_t> ClauseIdCache::rank_of(const uint64_t id) const {
     return ranking_.rank_of(*slot);
 }
 
-uint64_t ClauseIdCache::id_at_rank(const uint32_t rank) const {
-    return id_of_slot_[ranking_.slot_at_rank(rank)];
-}
-
-void ClauseIdCache::make_most_recent(const uint64_t id) {
+uint32_t ClauseIdCache::make_most_recent(const uint64_t id) {
     const auto slot = slot_of_id_.find(id);
     CHECK(slot.has_value());
+    const uint32_t rank = ranking_.rank_of(*slot);
     ranking_.make_most_recent(*slot);
+    return rank;
+}
+
+uint64_t ClauseIdCache::make_most_recent_at_rank(const uint32_t rank) {
+    const uint32_t slot = ranking_.slot_at_rank(rank);
+    ranking_.make_most_recent(slot);
+    return id_of_slot_[slot];
 }
 
 bool ClauseIdCache::make_most_recent_if_cached(const uint64_t id) {

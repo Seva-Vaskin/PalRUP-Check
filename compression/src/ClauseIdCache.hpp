@@ -20,6 +20,29 @@ private:
     std::vector<int32_t> tree_;
 };
 
+class CountingBitset {
+public:
+    explicit CountingBitset(uint32_t limit);
+
+    void insert(uint32_t x);
+
+    void erase(uint32_t x);
+
+    void assign_interval(uint32_t first, uint32_t last);
+
+    [[nodiscard]] bool contains(uint32_t x) const;
+
+    [[nodiscard]] uint32_t count_up_to(uint32_t x) const;
+
+    [[nodiscard]] uint32_t nth(uint32_t n) const;
+
+private:
+    static constexpr uint32_t kWordBits = 64;
+
+    std::vector<uint64_t> words_;
+    FenwickTree word_counts_;
+};
+
 class RecencyRanking {
 public:
     explicit RecencyRanking(uint32_t slot_count);
@@ -38,12 +61,11 @@ public:
 
 private:
     static constexpr uint32_t kNoStamp = 0;
-    static constexpr uint32_t kNoSlot = UINT32_MAX;
 
     uint32_t stamp_limit_;
     std::vector<uint32_t> stamp_of_slot_;
     std::vector<uint32_t> slot_of_stamp_;
-    FenwickTree used_stamps_;
+    CountingBitset used_stamps_;
     uint32_t next_stamp_ = 1;
     uint32_t oldest_stamp_ = 1;
     uint32_t size_ = 0;
@@ -98,9 +120,9 @@ public:
 
     [[nodiscard]] std::optional<uint32_t> rank_of(uint64_t id) const;
 
-    [[nodiscard]] uint64_t id_at_rank(uint32_t rank) const;
+    [[nodiscard]] uint32_t make_most_recent(uint64_t id);
 
-    void make_most_recent(uint64_t id);
+    [[nodiscard]] uint64_t make_most_recent_at_rank(uint32_t rank);
 
     [[nodiscard]] bool make_most_recent_if_cached(uint64_t id);
 
