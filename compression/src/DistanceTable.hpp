@@ -35,8 +35,6 @@ public:
 
     [[nodiscard]] uint32_t escape_bucket() const noexcept;
 
-    [[nodiscard]] const Bucket &bucket(uint32_t bucket_id) const noexcept;
-
     [[nodiscard]] uint32_t bucket_of(uint64_t value) const noexcept;
 
     void encode_extra(uint64_t value, BitWriter &out) const;

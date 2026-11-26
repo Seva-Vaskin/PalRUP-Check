@@ -98,7 +98,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <span>
 #include <vector>
 
 #include "BitReader.hpp"
@@ -131,26 +130,15 @@ public:
     // Returns the model to its initial state (nothing seen yet).
     void reset() noexcept;
 
-    [[nodiscard]] std::uint32_t alphabet_size() const noexcept { return n_; }
-
     // Writes `symbol` and folds it into the model.
     void encode(std::uint32_t symbol, BitWriter& out) noexcept;
-
-    // Bulk form; identical in output to a loop over encode().
-    void encode(std::span<const std::uint32_t> symbols, BitWriter& out) noexcept;
 
     // Reads one symbol and folds it into the model.
     [[nodiscard]] std::uint32_t decode(BitReader& in);
 
-    // Bulk form; fills `out` completely.
-    void decode(BitReader& in, std::span<std::uint32_t> out);
-
     // Bits that encode(symbol, ...) would emit right now, without emitting or
     // updating anything. Useful for cost estimation.
     [[nodiscard]] unsigned code_length(std::uint32_t symbol) const noexcept;
-
-    // Times `symbol` has been coded so far.
-    [[nodiscard]] std::uint32_t weight(std::uint32_t symbol) const noexcept;
 
 private:
     // Everything the algorithm needs to know about one block, in 32 bytes, so
@@ -275,11 +263,9 @@ class VitterEncoder : private VitterCoder {
 public:
     using VitterCoder::VitterCoder;
 
-    using VitterCoder::alphabet_size;
     using VitterCoder::code_length;
     using VitterCoder::encode;
     using VitterCoder::reset;
-    using VitterCoder::weight;
 
     using VitterCoder::kMaxAlphabetSize;
     using VitterCoder::kMinAlphabetSize;
@@ -289,10 +275,8 @@ class VitterDecoder : private VitterCoder {
 public:
     using VitterCoder::VitterCoder;
 
-    using VitterCoder::alphabet_size;
     using VitterCoder::decode;
     using VitterCoder::reset;
-    using VitterCoder::weight;
 
     using VitterCoder::kMaxAlphabetSize;
     using VitterCoder::kMinAlphabetSize;

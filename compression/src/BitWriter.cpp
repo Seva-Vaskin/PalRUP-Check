@@ -5,8 +5,6 @@ BitWriter::BitWriter(ByteWriter &out) noexcept: out_(out) {
 
 BitWriter::~BitWriter() { flush(); }
 
-void BitWriter::put_bit(const uint32_t bit) noexcept { put_bits(bit, 1); }
-
 void BitWriter::put_bits(const uint64_t value, const uint32_t count) noexcept {
     CHECK(count <= 64);
     if (count > 32) [[unlikely]] {

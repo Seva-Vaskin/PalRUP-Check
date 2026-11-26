@@ -74,10 +74,6 @@ uint32_t DistanceTable::bucket_count() const noexcept { return static_cast<uint3
 
 uint32_t DistanceTable::escape_bucket() const noexcept { return static_cast<uint32_t>(buckets_.size()); }
 
-const DistanceTable::Bucket &DistanceTable::bucket(const uint32_t bucket_id) const noexcept {
-    return buckets_[bucket_id];
-}
-
 uint32_t DistanceTable::bucket_of(const uint64_t value) const noexcept {
     if (value > max_value_) [[unlikely]] {
         return escape_bucket();

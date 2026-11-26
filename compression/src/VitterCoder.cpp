@@ -141,12 +141,6 @@ void VitterCoder::encode(std::uint32_t symbol, BitWriter& out) noexcept {
     update(leaf);
 }
 
-void VitterCoder::encode(std::span<const std::uint32_t> symbols, BitWriter& out) noexcept {
-    for (const std::uint32_t symbol : symbols) {
-        encode(symbol, out);
-    }
-}
-
 unsigned VitterCoder::code_length(std::uint32_t symbol) const noexcept {
     const std::uint32_t unseen = static_cast<std::uint32_t>(m_);
     std::uint32_t q = rep_[symbol + 1];
@@ -167,14 +161,6 @@ unsigned VitterCoder::code_length(std::uint32_t symbol) const noexcept {
         ++len;
     }
     return len;
-}
-
-std::uint32_t VitterCoder::weight(std::uint32_t symbol) const noexcept {
-    const std::uint32_t q = rep_[symbol + 1];
-    if (q <= static_cast<std::uint32_t>(m_)) {
-        return 0;
-    }
-    return blocks_[node_block_[q]].weight;
 }
 
 // ----------------------------------------------------------------------------
@@ -262,12 +248,6 @@ std::uint32_t VitterCoder::decode_one(BitReader& in) {
 }
 
 std::uint32_t VitterCoder::decode(BitReader& in) { return decode_one(in); }
-
-void VitterCoder::decode(BitReader& in, std::span<std::uint32_t> out) {
-    for (std::uint32_t& symbol : out) {
-        symbol = decode_one(in);
-    }
-}
 
 // ----------------------------------------------------------------------------
 //  Model update

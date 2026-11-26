@@ -12,8 +12,6 @@ public:
 
     BitWriter &operator=(const BitWriter &) = delete;
 
-    void put_bit(uint32_t bit) noexcept;
-
     void put_bits(uint64_t value, uint32_t count) noexcept;
 
     void flush() noexcept;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <span>
-
 #include "BitReader.hpp"
 #include "BitWriter.hpp"
 #include "ByteReader.hpp"
@@ -28,12 +26,6 @@ public:
 
     PalRupCompressor &operator=(const PalRupCompressor &) = delete;
 
-    void append_add(uint64_t id, std::span<const int32_t> literals, std::span<const uint64_t> hints);
-
-    void append_import(uint64_t id, std::span<const int32_t> literals);
-
-    void append_delete(std::span<const uint64_t> ids);
-
     void close();
 
     static void compress_file(const char *proof_path, const char *cnf_path, const char *output_path,
@@ -58,8 +50,6 @@ public:
     PalRupDecompressor &operator=(const PalRupDecompressor &) = delete;
 
     [[nodiscard]] const Record *read();
-
-    void close();
 
     static void decompress_file(const char *input_path, const char *output_path);
 
