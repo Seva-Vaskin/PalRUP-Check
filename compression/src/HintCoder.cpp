@@ -1,7 +1,5 @@
 #include "HintCoder.hpp"
 
-#include <algorithm>
-
 #include "utils.hpp"
 
 namespace {
@@ -30,14 +28,20 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
 
     scratch_single_prefix_.resize(n + 1);
     scratch_single_prefix_[0] = 0;
+    scratch_cached_.resize(n);
     for (size_t k = 0; k < n; ++k) {
         const DistanceTable &table = k == 0 ? state_.first_table : state_.rest_table;
         const VitterEncoder &model = k == 0 ? state_.first_model : state_.rest_model;
-        const uint64_t base = k == 0 ? id : scratch_tokens_[k - 1];
-        uint32_t cost = table.cost(delta(base, scratch_tokens_[k]), model, state_.delta_zone);
-        if (const auto rank = cache.rank_of(scratch_tokens_[k])) {
-            cost = std::min(cost, state_.rank_table.cost(*rank, model, state_.match_zone));
+        const uint64_t code = delta(k == 0 ? id : scratch_tokens_[k - 1], scratch_tokens_[k]);
+        const auto rank = cache.rank_of(scratch_tokens_[k]);
+        uint32_t cost;
+        if (rank) {
+            const uint32_t hit_cost = state_.rank_table.cost(*rank, model, state_.match_zone);
+            cost = table.cost_if_below(code, model, state_.delta_zone, hit_cost).value_or(hit_cost);
+        } else {
+            cost = table.cost(code, model, state_.delta_zone);
         }
+        scratch_cached_[k] = rank.has_value();
         scratch_single_prefix_[k + 1] = scratch_single_prefix_[k] + cost;
     }
 
@@ -56,17 +60,16 @@ void HintEncoder::encode(const std::span<const ClauseId> hints, const uint64_t i
         const uint64_t hint = scratch_tokens_[i];
         const DistanceTable &table = i == 0 ? state_.first_table : state_.rest_table;
         const uint64_t code = delta(i == 0 ? id : scratch_tokens_[i - 1], hint);
-        const auto rank = cache.rank_of(hint);
-        if (rank && state_.rank_table.cost(*rank, model, state_.match_zone)
-            <= table.cost(code, model, state_.delta_zone)) {
-            state_.rank_table.encode(*rank, model, out, state_.match_zone);
+        if (scratch_cached_[i]) {
+            const uint32_t rank = cache.make_most_recent(hint);
+            const uint32_t hit_cost = state_.rank_table.cost(rank, model, state_.match_zone);
+            if (table.cost_if_below(code, model, state_.delta_zone, hit_cost)) {
+                table.encode(code, model, out, state_.delta_zone);
+            } else {
+                state_.rank_table.encode(rank, model, out, state_.match_zone);
+            }
         } else {
             table.encode(code, model, out, state_.delta_zone);
-        }
-
-        if (rank) {
-            cache.make_most_recent(hint);
-        } else {
             scratch_deferred_.push_back(hint);
         }
         ++i;
@@ -106,9 +109,7 @@ void HintDecoder::decode(const uint64_t id, ClauseIdCache &cache, BitReader &in,
             if (rank >= cache.size()) {
                 throw OperationError("hint decoder: corrupt stream (cache rank out of range)");
             }
-            const uint64_t hint = cache.id_at_rank(static_cast<uint32_t>(rank));
-            cache.make_most_recent(hint);
-            scratch_tokens_.push_back(hint);
+            scratch_tokens_.push_back(cache.make_most_recent_at_rank(static_cast<uint32_t>(rank)));
         } else {
             const DistanceTable &table = first ? state_.first_table : state_.rest_table;
             const uint64_t base = first ? id : scratch_tokens_.back();

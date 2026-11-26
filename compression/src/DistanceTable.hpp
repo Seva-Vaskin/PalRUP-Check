@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <vector>
 
 #include "VitterCoder.hpp"
@@ -43,11 +44,16 @@ public:
 
     [[nodiscard]] uint32_t cost(uint64_t value, const VitterEncoder &model, uint32_t offset = 0) const noexcept;
 
+    [[nodiscard]] std::optional<uint32_t> cost_if_below(uint64_t value, const VitterEncoder &model, uint32_t offset,
+                                                        uint32_t limit) const noexcept;
+
     uint64_t decode(VitterDecoder& model, BitReader &in) const;
 
     uint64_t decode_extra(uint32_t bucket, BitReader &in) const;
 
 private:
+    [[nodiscard]] uint32_t extra_bits(uint32_t bucket, uint64_t value) const noexcept;
+
     std::vector<Bucket> buckets_;
     uint64_t log_start_;
     uint32_t exact_count_;

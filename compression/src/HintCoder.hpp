@@ -59,6 +59,7 @@ private:
     HintState<VitterEncoder, MatchEncoder> state_;
     std::vector<uint64_t> scratch_tokens_;
     std::vector<uint64_t> scratch_single_prefix_;
+    std::vector<bool> scratch_cached_;
     std::vector<uint64_t> scratch_deferred_;
 };
 

@@ -106,16 +106,31 @@ void DistanceTable::encode(uint64_t value, VitterEncoder &model, BitWriter &out,
     encode_extra(value, out);
 }
 
-uint32_t DistanceTable::cost(const uint64_t value, const VitterEncoder &model, const uint32_t offset) const noexcept {
-    const uint32_t bucket = bucket_of(value);
-    uint32_t extra;
+uint32_t DistanceTable::extra_bits(const uint32_t bucket, const uint64_t value) const noexcept {
     if (bucket == escape_bucket()) [[unlikely]] {
         const auto width = static_cast<uint32_t>(std::bit_width(value - max_value_ - 1));
-        extra = 7 + (width >= 2 ? width - 1 : 0);
-    } else {
-        extra = buckets_[bucket].extra_bits;
+        return 7 + (width >= 2 ? width - 1 : 0);
     }
-    return model.code_length(offset + bucket) + extra;
+    return buckets_[bucket].extra_bits;
+}
+
+uint32_t DistanceTable::cost(const uint64_t value, const VitterEncoder &model, const uint32_t offset) const noexcept {
+    const uint32_t bucket = bucket_of(value);
+    return model.code_length(offset + bucket) + extra_bits(bucket, value);
+}
+
+std::optional<uint32_t> DistanceTable::cost_if_below(const uint64_t value, const VitterEncoder &model,
+                                                     const uint32_t offset, const uint32_t limit) const noexcept {
+    const uint32_t bucket = bucket_of(value);
+    const uint32_t extra = extra_bits(bucket, value);
+    if (extra >= limit) {
+        return std::nullopt;
+    }
+    const uint32_t cost = model.code_length(offset + bucket) + extra;
+    if (cost >= limit) {
+        return std::nullopt;
+    }
+    return cost;
 }
 
 uint64_t DistanceTable::decode(VitterDecoder &model, BitReader &in) const {
