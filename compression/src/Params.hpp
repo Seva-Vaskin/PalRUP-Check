@@ -45,11 +45,16 @@ struct LiteralParams {
     DistanceTable::Config first_table = {.exact_until = 3072, .groups_per_level = 64};
     DistanceTable::Config gap_table = {.exact_until = 3072, .groups_per_level = 64};
 
+    uint8_t cache_bits = 16;
+    DistanceTable::Config rank_table = {.exact_until = 256, .groups_per_level = 32};
+
     LZParams lz;
 
     void fields(this auto &self, auto &&f) {
         f(self.first_table);
         f(self.gap_table);
+        f(self.cache_bits);
+        f(self.rank_table);
         f(self.lz);
     }
 };

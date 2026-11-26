@@ -120,6 +120,8 @@ public:
 
     [[nodiscard]] std::optional<uint32_t> rank_of(uint64_t key) const;
 
+    [[nodiscard]] uint64_t key_at_rank(uint32_t rank) const;
+
     [[nodiscard]] uint32_t make_most_recent(uint64_t key);
 
     [[nodiscard]] uint64_t make_most_recent_at_rank(uint32_t rank);

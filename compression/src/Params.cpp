@@ -71,6 +71,9 @@ void Params::validate() const {
     if (cache.cache_bits < RecencyCache::MIN_CACHE_BITS || cache.cache_bits > RecencyCache::MAX_CACHE_BITS) {
         invalid("cache.cache_bits");
     }
+    if (literals.cache_bits < RecencyCache::MIN_CACHE_BITS || literals.cache_bits > RecencyCache::MAX_CACHE_BITS) {
+        invalid("literals.cache_bits");
+    }
 
 #define CHECK_TABLE(field) check(field, #field)
 
@@ -79,6 +82,7 @@ void Params::validate() const {
     CHECK_TABLE(delete_record.first_table);
     CHECK_TABLE(literals.first_table);
     CHECK_TABLE(literals.gap_table);
+    CHECK_TABLE(literals.rank_table);
     CHECK_TABLE(import_record.id_table);
     CHECK_TABLE(hints.first_table);
     CHECK_TABLE(hints.rest_table);

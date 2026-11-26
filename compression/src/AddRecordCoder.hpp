@@ -34,7 +34,7 @@ public:
 
     void encode_update(ClauseId id, BitWriter &out);
 
-    void encode(const AddRecord &record, RecencyCache &cache, BitWriter &out);
+    void encode(const AddRecord &record, RecencyCache &clause_id_cache, RecencyCache &literal_cache, BitWriter &out);
 
 private:
     AddState<VitterEncoder, LiteralEncoder, HintEncoder> state_;
@@ -46,7 +46,7 @@ public:
 
     void decode_update(BitReader &in);
 
-    void decode(BitReader &in, RecencyCache &cache, AddRecord &out);
+    void decode(BitReader &in, RecencyCache &clause_id_cache, RecencyCache &literal_cache, AddRecord &out);
 
 private:
     AddState<VitterDecoder, LiteralDecoder, HintDecoder> state_;

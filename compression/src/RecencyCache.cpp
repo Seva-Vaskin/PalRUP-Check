@@ -249,6 +249,10 @@ std::optional<uint32_t> RecencyCache::rank_of(const uint64_t key) const {
     return ranking_.rank_of(*slot);
 }
 
+uint64_t RecencyCache::key_at_rank(const uint32_t rank) const {
+    return key_of_slot_[ranking_.slot_at_rank(rank)];
+}
+
 uint32_t RecencyCache::make_most_recent(const uint64_t key) {
     const auto slot = slot_of_key_.find(key);
     CHECK(slot.has_value());

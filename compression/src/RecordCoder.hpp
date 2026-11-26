@@ -25,6 +25,7 @@ struct RecordState {
     bool finished = false;
 
     RecencyCache clause_id_cache;
+    RecencyCache literal_cache;
 
     VitterModel tag_model;
     AddCoder add_record;
@@ -33,6 +34,7 @@ struct RecordState {
 
     explicit RecordState(const Params &params)
         : clause_id_cache(params.cache.cache_bits),
+          literal_cache(params.literals.cache_bits),
           tag_model(Params::kRecordTagCount),
           add_record(params),
           import_record(params),

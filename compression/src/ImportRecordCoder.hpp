@@ -25,7 +25,7 @@ class ImportRecordEncoder {
 public:
     explicit ImportRecordEncoder(const Params& params);;
 
-    void encode(const ImportRecord &record, RecencyCache &cache, BitWriter &out);
+    void encode(const ImportRecord &record, RecencyCache &clause_id_cache, RecencyCache &literal_cache, BitWriter &out);
 
 private:
     ImportState<VitterEncoder, LiteralEncoder> state_;
@@ -35,7 +35,7 @@ class ImportRecordDecoder {
 public:
     explicit ImportRecordDecoder(const Params& params);
 
-    void decode(BitReader &in, RecencyCache &cache, ImportRecord &out);
+    void decode(BitReader &in, RecencyCache &clause_id_cache, RecencyCache &literal_cache, ImportRecord &out);
 
 private:
     ImportState<VitterDecoder, LiteralDecoder> state_;

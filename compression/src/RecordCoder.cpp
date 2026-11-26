@@ -21,12 +21,12 @@ void RecordEncoder::encode(const Record &record) {
             state_.add_record.encode_update(add->id, out_);
         }
         put_tag(RecordTag::Add);
-        state_.add_record.encode(*add, state_.clause_id_cache, out_);
+        state_.add_record.encode(*add, state_.clause_id_cache, state_.literal_cache, out_);
         return;
     }
     if (const auto *imp = std::get_if<ImportRecord>(&record)) {
         put_tag(RecordTag::Import);
-        state_.import_record.encode(*imp, state_.clause_id_cache, out_);
+        state_.import_record.encode(*imp, state_.clause_id_cache, state_.literal_cache, out_);
         return;
     }
     put_tag(RecordTag::Delete);
@@ -50,10 +50,12 @@ const Record *RecordDecoder::decode() {
     while (!state_.finished) {
         switch (static_cast<RecordTag>(state_.tag_model.decode(in_))) {
             case RecordTag::Add:
-                state_.add_record.decode(in_, state_.clause_id_cache, std::get<AddRecord>(add_slot_));
+                state_.add_record.decode(in_, state_.clause_id_cache, state_.literal_cache,
+                                         std::get<AddRecord>(add_slot_));
                 return &add_slot_;
             case RecordTag::Import:
-                state_.import_record.decode(in_, state_.clause_id_cache, std::get<ImportRecord>(import_slot_));
+                state_.import_record.decode(in_, state_.clause_id_cache, state_.literal_cache,
+                                            std::get<ImportRecord>(import_slot_));
                 return &import_slot_;
             case RecordTag::Delete:
                 state_.delete_record.decode(in_, state_.clause_id_cache, std::get<DeleteRecord>(delete_slot_));
