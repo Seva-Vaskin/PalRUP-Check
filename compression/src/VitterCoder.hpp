@@ -2,7 +2,8 @@
 
 // Remark:
 // VitterCoder.hpp, VitterCoder.cpp are LLM-generated.
-
+// TODO: review the file, rewrite it if needed
+//
 //  TODO: weights are 32-bit, so one model must not see 2^32 or
 //  more symbols. On very large proofs a model can reach that limit.
 
@@ -218,19 +219,21 @@ private:
     [[gnu::noinline]] std::uint32_t slide_and_increment_slow(std::uint32_t q,
                                                              bool q_is_leaf) noexcept;
 
+    // Root-to-leaf branch bits of leaf `q`, the last branch in the lowest bit.
+    // Remembered while the tree keeps its shape, which most updates do: they
+    // only add to weights. nullptr for a path of more than 64 edges, which
+    // cannot occur while weights fit in 32 bits; put_long_path covers it.
+    struct KnownPath {
+        std::uint32_t shape_version; // 0: never computed
+        std::uint32_t length;
+        std::uint64_t bits;
+    };
+    [[nodiscard]] const KnownPath* path_to_leaf(std::uint32_t q) const noexcept;
+    [[gnu::noinline]] void put_long_path(std::uint32_t q, BitWriter& out) noexcept;
+
     // Shared body of decode(). Always inlined: it is three instructions plus
     // the descent, and a call here would cost more than the body.
     [[nodiscard, gnu::always_inline]] std::uint32_t decode_one(BitReader& in);
-
-    // Codeword scratch, for the hypothetical path longer than 64 edges. A path
-    // cannot in fact exceed ~46 edges while weights fit in 32 bits (see the
-    // Fibonacci bound above), so this is a safety net that never fills.
-    //
-    // It is a member and not a local because a local array makes the compiler
-    // fit encode() with a stack-protector prologue, and that is three loads, a
-    // store and a compare on every symbol for scratch space that is never used.
-    static constexpr unsigned kSpillWords = 4;
-    std::uint64_t spill_[kSpillWords] = {};
 
     std::uint32_t n_ = 0; // alphabet size
     std::uint32_t z_ = 0; // 2n-1: highest node index, and the root once M < n
@@ -245,6 +248,12 @@ private:
     std::vector<std::uint32_t> node_block_; // node -> block id, indexed 1 .. 2n-1
     std::vector<std::uint32_t> alpha_;      // leaf node -> 1-based letter
     std::vector<std::uint32_t> rep_;        // 1-based letter -> leaf node
+
+    // Bumped by every change of the tree's shape, the one thing a path depends
+    // on: by a slide or a split, not by a weight increment or by two leaves
+    // trading symbols. 32 bits suffice for the same reason the weights do.
+    std::uint32_t shape_version_ = 0;
+    mutable std::vector<KnownPath> known_paths_; // leaf node -> its path, indexed 1 .. n
 };
 
 // ============================================================================

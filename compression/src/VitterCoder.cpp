@@ -36,11 +36,13 @@ VitterCoder::VitterCoder(std::uint32_t alphabet_size) {
     node_block_.resize(static_cast<std::size_t>(z_) + 1);
     alpha_.resize(static_cast<std::size_t>(n_) + 1);
     rep_.resize(static_cast<std::size_t>(n_) + 1);
+    known_paths_.resize(static_cast<std::size_t>(n_) + 1, KnownPath{.shape_version = 0, .length = 0, .bits = 0});
 
     reset();
 }
 
 void VitterCoder::reset() noexcept {
+    ++shape_version_;
     m_ = static_cast<std::int32_t>(n_);
     e_ = static_cast<std::int32_t>(std::bit_width(n_)) - 1;
     r_ = static_cast<std::int32_t>(n_ - (1u << e_));
@@ -97,21 +99,28 @@ void VitterCoder::encode(std::uint32_t symbol, BitWriter& out) noexcept {
         q = unseen;
     }
 
-    const std::uint32_t root = (unseen == n_) ? n_ : z_;
+    if (const KnownPath* path = path_to_leaf(q)) [[likely]] {
+        put_wide(out, path->bits, path->length);
+    } else {
+        put_long_path(q, out);
+    }
+    if (escape_bits != 0) [[unlikely]] {
+        out.put_bits(escape, escape_bits);
+    }
+
+    update(leaf);
+}
+
+void VitterCoder::put_long_path(std::uint32_t q, BitWriter& out) noexcept {
+    const std::uint32_t root = (static_cast<std::uint32_t>(m_) == n_) ? n_ : z_;
     const Block* const B = blocks();
     const std::uint32_t* const NB = nb();
 
-    // Climb to the root, building the path bottom-up.
-    //
-    // With pp = 2*parent + parity and delta = first - q, the published
-    // "bit = (delta + parity) & 1" and "q = parent - ((delta + 1 - parity)/2)"
-    // collapse into one quantity s = pp - delta: its low bit is the branch bit
-    // and its upper bits are the parent. (Both halves follow from s and pp - 1
-    // agreeing mod 2 with delta + parity.)
-    //
-    // Iteration i produces the bit at depth len-1-i, so parking it at bit i of
-    // `code` and writing `code` most-significant-bit first replays the path in
-    // root-to-leaf order with one store.
+    // The climb of path_to_leaf, spilling every 64 edges. A path cannot in fact
+    // exceed ~46 edges while weights fit in 32 bits (see the Fibonacci bound in
+    // the header), so this is a safety net that never runs.
+    constexpr unsigned kSpillWords = 4;
+    std::uint64_t spill[kSpillWords] = {};
     std::uint64_t code = 0;
     unsigned len = 0;
     unsigned spilled = 0;
@@ -122,7 +131,7 @@ void VitterCoder::encode(std::uint32_t symbol, BitWriter& out) noexcept {
         code |= static_cast<std::uint64_t>(s & 1u) << len;
         q = s >> 1;
         if (++len == 64) [[unlikely]] {
-            spill_[spilled & (kSpillWords - 1)] = code;
+            spill[spilled & (kSpillWords - 1)] = code;
             ++spilled;
             code = 0;
             len = 0;
@@ -132,13 +141,8 @@ void VitterCoder::encode(std::uint32_t symbol, BitWriter& out) noexcept {
 
     put_wide(out, code, len);
     for (unsigned i = spilled; i-- > 0;) {
-        put_wide(out, spill_[i & (kSpillWords - 1)], 64);
+        put_wide(out, spill[i & (kSpillWords - 1)], 64);
     }
-    if (escape_bits != 0) [[unlikely]] {
-        out.put_bits(escape, escape_bits);
-    }
-
-    update(leaf);
 }
 
 unsigned VitterCoder::code_length(std::uint32_t symbol) const noexcept {
@@ -152,6 +156,9 @@ unsigned VitterCoder::code_length(std::uint32_t symbol) const noexcept {
         q = unseen;
     }
 
+    if (const KnownPath* path = path_to_leaf(q)) [[likely]] {
+        return len + path->length;
+    }
     const std::uint32_t root = (unseen == n_) ? n_ : z_;
     const Block* const B = blocks();
     const std::uint32_t* const NB = nb();
@@ -161,6 +168,43 @@ unsigned VitterCoder::code_length(std::uint32_t symbol) const noexcept {
         ++len;
     }
     return len;
+}
+
+const VitterCoder::KnownPath* VitterCoder::path_to_leaf(std::uint32_t q) const noexcept {
+    KnownPath& known = known_paths_[q];
+    if (known.shape_version == shape_version_) {
+        return &known;
+    }
+
+    const std::uint32_t root = (static_cast<std::uint32_t>(m_) == n_) ? n_ : z_;
+    const Block* const B = blocks();
+    const std::uint32_t* const NB = nb();
+
+    // Climb to the root, building the path bottom-up.
+    //
+    // With pp = 2*parent + parity and delta = first - q, the published
+    // "bit = (delta + parity) & 1" and "q = parent - ((delta + 1 - parity)/2)"
+    // collapse into one quantity s = pp - delta: its low bit is the branch bit
+    // and its upper bits are the parent. (Both halves follow from s and pp - 1
+    // agreeing mod 2 with delta + parity.)
+    //
+    // Iteration i produces the bit at depth len-1-i, so parking it at bit i of
+    // `bits` and writing `bits` most-significant-bit first replays the path in
+    // root-to-leaf order with one store.
+    std::uint64_t bits = 0;
+    unsigned len = 0;
+    while (q != root) {
+        if (len == 64) [[unlikely]] {
+            return nullptr;
+        }
+        const Block& b = B[NB[q]];
+        const std::uint32_t s = b.pp - b.first + q;
+        bits |= static_cast<std::uint64_t>(s & 1u) << len;
+        q = s >> 1;
+        ++len;
+    }
+    known = KnownPath{.shape_version = shape_version_, .length = len, .bits = bits};
+    return &known;
 }
 
 // ----------------------------------------------------------------------------
@@ -305,6 +349,7 @@ void VitterCoder::update(std::uint32_t leaf) noexcept {
 }
 
 void VitterCoder::update_first_occurrence(std::uint32_t leaf) noexcept {
+    ++shape_version_;
     Block* const B = blocks();
     std::uint32_t* const NB = nb();
 
@@ -433,6 +478,7 @@ std::uint32_t VitterCoder::slide_and_increment_slow(std::uint32_t q, bool q_is_l
     if (q_is_leaf ? (B[nbq].first > n_ && B[nbq].weight == w)
                   : (B[nbq].first <= n_ && B[nbq].weight == w + 1u)) {
         slid = true;
+        ++shape_version_; // without a slide, only weights and blocks change, not the tree
         old_pp = B[nbq].pp;
 
         // A slide moves q above the whole of nbq, which changes exactly three
